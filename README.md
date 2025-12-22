@@ -51,12 +51,21 @@ Tous les paramètres sont affichés et personnalisables.
 git clone https://github.com/Elm-as/DataAnalyzer2.0.git
 cd DataAnalyzer2.0
 
+# Créer un environnement virtuel (recommandé)
+python -m venv venv
+source venv/bin/activate  # Sur Windows: venv\Scripts\activate
+
 # Installer les dépendances
 pip install -r requirements.txt
+
+# Tester l'installation
+python test_validation.py
 
 # Lancer l'application
 streamlit run app.py
 ```
+
+📖 **Guide rapide**: Consulter [QUICKSTART.md](QUICKSTART.md) pour un tutoriel détaillé.
 
 ## 📂 Structure du projet
 
@@ -135,10 +144,19 @@ DataAnalyzer2.0/
 
 Le système passe ces tests :
 
+```bash
+python test_validation.py
+```
+
+Tests effectués:
+
 1. ✅ Dataset IRIS → Species = cible → Classification uniquement
 2. ✅ Dataset Titanic → Survived = cible → Jamais dans features
 3. ✅ Séparation stricte X/y → Validation scientifique
 4. ✅ Métriques cohérentes avec le type de problème
+5. ✅ Entraînement rejeté si cible dans features
+
+**Résultat attendu**: `🎉 ALL TESTS PASSED!`
 
 ## 🛠️ Technologies
 
