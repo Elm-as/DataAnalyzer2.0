@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from urllib.parse import urlparse
 
 # settings.py est dans modules/dataanalyzer/, on remonte à la racine du repo
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -14,13 +15,44 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return str(v).strip().lower() in {'1', 'true', 'yes', 'y', 'on'}
 
 
-DEBUG = _env_bool('DJANGO_DEBUG', default=True)
+DEBUG = _env_bool('DJANGO_DEBUG', default=False)
+
+# ALLOWED_HOSTS
+# - En local: autorise localhost
+# - En prod (Railway): préfère une liste explicite via DJANGO_ALLOWED_HOSTS
+# - Fallback: détecte le domaine public Railway si présent
+allowed_hosts: list[str] = ['127.0.0.1', 'localhost']
 
 _hosts = os.environ.get('DJANGO_ALLOWED_HOSTS')
 if _hosts:
-    ALLOWED_HOSTS: list[str] = [h.strip() for h in _hosts.split(',') if h.strip()]
+    allowed_hosts.extend([h.strip() for h in _hosts.split(',') if h.strip()])
+
+_railway_public_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+if _railway_public_domain:
+    allowed_hosts.append(_railway_public_domain.strip())
 else:
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+    # Certains environnements exposent une URL; on en extrait le host
+    for _url_var in ('RAILWAY_STATIC_URL', 'RAILWAY_URL', 'PUBLIC_URL', 'APP_URL'):
+        _url_val = os.environ.get(_url_var)
+        if not _url_val:
+            continue
+        try:
+            _parsed = urlparse(_url_val)
+            if _parsed.hostname:
+                allowed_hosts.append(_parsed.hostname)
+                break
+        except Exception:
+            continue
+
+# Dé-duplique en conservant l'ordre
+_seen: set[str] = set()
+ALLOWED_HOSTS: list[str] = []
+for _h in allowed_hosts:
+    _h = (_h or '').strip()
+    if not _h or _h in _seen:
+        continue
+    _seen.add(_h)
+    ALLOWED_HOSTS.append(_h)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
