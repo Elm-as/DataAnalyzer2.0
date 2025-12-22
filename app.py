@@ -833,11 +833,12 @@ def main():
                     if success:
                         st.success(f"✅ Données exportées: {output_path}")
                         with open(output_path, 'rb') as f:
-                            st.download_button(
-                                label="⬇️ Télécharger",
-                                data=f,
-                                file_name=os.path.basename(output_path)
-                            )
+                            file_content = f.read()
+                        st.download_button(
+                            label="⬇️ Télécharger",
+                            data=file_content,
+                            file_name=os.path.basename(output_path)
+                        )
                     else:
                         st.error("❌ Erreur lors de l'export")
             

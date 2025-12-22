@@ -225,7 +225,7 @@ from sklearn.ensemble import RandomForestRegressor
 df = pd.read_csv('votre_fichier.csv')
 
 # RÈGLE: La cible n'est JAMAIS dans les features
-X = df{features}
+X = df[{features}]
 y = df['{target}']
 
 # Split
@@ -455,7 +455,7 @@ from sklearn.ensemble import RandomForestClassifier
 df = pd.read_csv('votre_fichier.csv')
 
 # RÈGLE: La cible n'est JAMAIS dans les features
-X = df{features}
+X = df[{features}]
 y = df['{target}']
 
 # Split

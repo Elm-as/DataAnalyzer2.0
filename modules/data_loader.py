@@ -30,8 +30,12 @@ def load_data(file_path: str, separator: str = ',') -> Tuple[Optional[pd.DataFra
                 try:
                     df = pd.read_csv(file_path, sep=other_sep, encoding='utf-8')
                 except:
-                    # Essayer avec latin-1
-                    df = pd.read_csv(file_path, sep=separator, encoding='latin-1')
+                    # Essayer avec utf-8-sig pour les fichiers avec BOM
+                    try:
+                        df = pd.read_csv(file_path, sep=separator, encoding='utf-8-sig')
+                    except:
+                        # Dernier recours: latin-1
+                        df = pd.read_csv(file_path, sep=separator, encoding='latin-1')
                     
         elif file_extension in ['.xlsx', '.xls']:
             df = pd.read_excel(file_path, engine='openpyxl' if file_extension == '.xlsx' else None)
