@@ -225,8 +225,10 @@ from sklearn.ensemble import RandomForestRegressor
 df = pd.read_csv('votre_fichier.csv')
 
 # RÈGLE: La cible n'est JAMAIS dans les features
-X = df[{features}]
-y = df['{target}']
+features = {features}
+target = '{target}'
+X = df[features]
+y = df[target]
 
 # Split
 X_train, X_test, y_train, y_test = train_test_split(
@@ -239,7 +241,7 @@ model.fit(X_train, y_train)
 
 # Évaluer
 score = model.score(X_test, y_test)
-print(f'R² Score: {{score:.3f}}')
+print(f'R² Score: {{{{score:.3f}}}}')
 """,
             'execution_time': time.time() - start_time
         }
@@ -455,8 +457,10 @@ from sklearn.ensemble import RandomForestClassifier
 df = pd.read_csv('votre_fichier.csv')
 
 # RÈGLE: La cible n'est JAMAIS dans les features
-X = df[{features}]
-y = df['{target}']
+features = {features}
+target = '{target}'
+X = df[features]
+y = df[target]
 
 # Split
 X_train, X_test, y_train, y_test = train_test_split(
@@ -469,7 +473,7 @@ model.fit(X_train, y_train)
 
 # Évaluer
 score = model.score(X_test, y_test)
-print(f'Accuracy: {{score:.3f}}')
+print(f'Accuracy: {{{{score:.3f}}}}')
 """,
             'execution_time': time.time() - start_time
         }
