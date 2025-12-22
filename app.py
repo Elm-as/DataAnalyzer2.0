@@ -2,6 +2,20 @@
 DataAnalyzer 2.0 - Main Application
 Plateforme no-code d'analyse de données professionnelle
 """
+
+# DataAnalyzer V2 (Django): point d'entrée
+# Lancer: python app.py
+if __name__ == "__main__":
+    import os
+    import sys
+
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dataanalyzer.settings')
+    from django.core.management import execute_from_command_line
+
+    # Par défaut: serveur local
+    execute_from_command_line([sys.argv[0], 'runserver', '127.0.0.1:8000'])
+    raise SystemExit(0)
+
 import streamlit as st
 import pandas as pd
 import numpy as np

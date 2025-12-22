@@ -171,21 +171,21 @@ def get_column_recommendations(df: pd.DataFrame, profile: Dict) -> Dict[str, Lis
         
         # Valeurs manquantes
         if col_info['pct_missing'] > 50:
-            col_recs.append(f"⚠️ {col_info['pct_missing']:.1f}% de valeurs manquantes - Considérer la suppression")
+            col_recs.append(f"Attention: {col_info['pct_missing']:.1f}% de valeurs manquantes - Considérer la suppression")
         elif col_info['pct_missing'] > 5:
-            col_recs.append(f"ℹ️ {col_info['pct_missing']:.1f}% de valeurs manquantes - Imputation recommandée")
+            col_recs.append(f"Info: {col_info['pct_missing']:.1f}% de valeurs manquantes - Imputation recommandée")
         
         # Cardinalité élevée pour catégorielles
         if col_info['type'] == 'categorical' and col_info['n_unique'] > 50:
-            col_recs.append(f"⚠️ Haute cardinalité ({col_info['n_unique']} catégories) - Regroupement recommandé")
+            col_recs.append(f"Attention: Haute cardinalité ({col_info['n_unique']} catégories) - Regroupement recommandé")
         
         # Variance nulle
         if col_info['type'] == 'numeric' and col_info.get('std', 1) == 0:
-            col_recs.append("⚠️ Variance nulle - Variable constante, peut être supprimée")
+            col_recs.append("Attention: Variance nulle - Variable constante, peut être supprimée")
         
         # Une seule valeur
         if col_info['n_unique'] == 1:
-            col_recs.append("⚠️ Une seule valeur unique - Variable inutile")
+            col_recs.append("Attention: Une seule valeur unique - Variable inutile")
         
         if col_recs:
             recommendations[col] = col_recs

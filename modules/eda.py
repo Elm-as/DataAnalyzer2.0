@@ -64,6 +64,21 @@ def descriptive_statistics(df: pd.DataFrame, columns: Optional[List[str]] = None
                 """,
                 'warnings': []
             },
+            'python_code': f"""
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv('votre_fichier.csv')
+numeric_cols = {numeric_cols}
+
+stats_df = df[numeric_cols].describe().T
+stats_df['skewness'] = df[numeric_cols].skew()
+stats_df['kurtosis'] = df[numeric_cols].kurtosis()
+stats_df['missing'] = df[numeric_cols].isna().sum()
+stats_df['missing_pct'] = (df[numeric_cols].isna().sum() / len(df)) * 100
+
+print(stats_df)
+""",
             'execution_time': time.time() - start_time
         }
         
@@ -149,6 +164,27 @@ def correlation_analysis(df: pd.DataFrame, columns: Optional[List[str]] = None,
                 """,
                 'warnings': ['Corrélation ≠ Causalité']
             },
+            'python_code': f"""
+import pandas as pd
+
+df = pd.read_csv('votre_fichier.csv')
+numeric_cols = {numeric_cols}
+method = '{method}'
+threshold = {threshold}
+
+corr = df[numeric_cols].corr(method=method)
+
+strong = []
+cols = corr.columns.tolist()
+for i in range(len(cols)):
+    for j in range(i+1, len(cols)):
+        v = corr.iloc[i, j]
+        if abs(v) >= threshold:
+            strong.append((cols[i], cols[j], float(v)))
+
+strong = sorted(strong, key=lambda x: abs(x[2]), reverse=True)
+print(strong[:20])
+""",
             'execution_time': time.time() - start_time
         }
         
@@ -238,6 +274,25 @@ def detect_outliers(df: pd.DataFrame, columns: Optional[List[str]] = None,
                     'Comprendre leur origine (erreur ou valeur réelle extrême)'
                 ]
             },
+            'python_code': f"""
+import pandas as pd
+
+df = pd.read_csv('votre_fichier.csv')
+numeric_cols = {numeric_cols}
+iqr_multiplier = {iqr_multiplier}
+
+outliers = {{}}
+for col in numeric_cols:
+    q1 = df[col].quantile(0.25)
+    q3 = df[col].quantile(0.75)
+    iqr = q3 - q1
+    lower = q1 - iqr_multiplier * iqr
+    upper = q3 + iqr_multiplier * iqr
+    mask = (df[col] < lower) | (df[col] > upper)
+    outliers[col] = int(mask.sum())
+
+print(outliers)
+""",
             'execution_time': time.time() - start_time
         }
         
@@ -321,6 +376,19 @@ def categorical_analysis(df: pd.DataFrame, columns: Optional[List[str]] = None,
                     'Considérer le regroupement des catégories rares'
                 ]
             },
+            'python_code': f"""
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv('votre_fichier.csv')
+cat_cols = {cat_cols}
+
+for col in cat_cols:
+    vc = df[col].value_counts(dropna=False)
+    probs = vc / len(df)
+    entropy = -np.sum(probs * np.log2(probs + 1e-10))
+    print(col, 'n_unique=', df[col].nunique(), 'entropy=', float(entropy))
+""",
             'execution_time': time.time() - start_time
         }
         
@@ -409,11 +477,157 @@ def distribution_analysis(df: pd.DataFrame, columns: Optional[List[str]] = None,
                     'Vérifier la présence d\'outliers'
                 ]
             },
+            'python_code': f"""
+import pandas as pd
+from scipy import stats
+
+df = pd.read_csv('votre_fichier.csv')
+numeric_cols = {numeric_cols}
+bins = {bins}
+
+for col in numeric_cols:
+    s = df[col].dropna()
+    if len(s) < 5000:
+        stat, p = stats.shapiro(s.sample(min(5000, len(s))))
+        print(col, 'shapiro_p=', float(p))
+""",
             'execution_time': time.time() - start_time
         }
         
         return results
         
+    except Exception as e:
+        return {
+            'success': False,
+            'results': {},
+            'error': str(e),
+            'execution_time': time.time() - start_time
+        }
+
+
+def statistical_tests(df: pd.DataFrame, target: Optional[str] = None, params: Dict = {}) -> Dict:
+    """Tests statistiques conditionnels selon types.
+
+    Cas gérés (simple):
+    - Numérique vs binaire: t-test
+    - Numérique vs catégoriel (>2): ANOVA
+    - Catégoriel vs catégoriel: chi2
+    """
+    start_time = time.time()
+
+    try:
+        if target is None or target not in df.columns:
+            return {
+                'success': False,
+                'results': {},
+                'error': "Cible requise pour les tests statistiques",
+                'execution_time': time.time() - start_time
+            }
+
+        # Déterminer types simples
+        target_series = df[target]
+        target_is_numeric = pd.api.types.is_numeric_dtype(target_series)
+        target_nunique = target_series.dropna().nunique()
+
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        cat_cols = df.select_dtypes(include=['object', 'category', 'bool']).columns.tolist()
+        if target in numeric_cols:
+            numeric_cols.remove(target)
+        if target in cat_cols:
+            cat_cols.remove(target)
+
+        results_tests = []
+
+        # Numérique ~ cible catégorielle
+        if (not target_is_numeric) or (target_is_numeric and target_nunique <= 10):
+            groups = target_series.dropna().astype(str)
+            if target_nunique == 2:
+                # t-test pour chaque variable numérique
+                classes = sorted(groups.unique())
+                a_label, b_label = classes[0], classes[1]
+                mask_a = (groups == a_label)
+                mask_b = (groups == b_label)
+                for col in numeric_cols:
+                    xa = df.loc[mask_a, col].dropna()
+                    xb = df.loc[mask_b, col].dropna()
+                    if len(xa) < 3 or len(xb) < 3:
+                        continue
+                    stat, p = stats.ttest_ind(xa, xb, equal_var=False)
+                    results_tests.append({
+                        'test': 't_test',
+                        'feature': col,
+                        'group_a': a_label,
+                        'group_b': b_label,
+                        'statistic': float(stat),
+                        'p_value': float(p),
+                    })
+            elif target_nunique > 2:
+                # ANOVA
+                for col in numeric_cols:
+                    arrays = []
+                    for k in sorted(groups.unique()):
+                        xk = df.loc[groups == k, col].dropna()
+                        if len(xk) >= 3:
+                            arrays.append(xk.values)
+                    if len(arrays) < 2:
+                        continue
+                    stat, p = stats.f_oneway(*arrays)
+                    results_tests.append({
+                        'test': 'anova',
+                        'feature': col,
+                        'n_groups': int(target_nunique),
+                        'statistic': float(stat),
+                        'p_value': float(p),
+                    })
+
+        # Chi2 entre cible catégorielle et autres catégorielles
+        if (not target_is_numeric) or (target_is_numeric and target_nunique <= 10):
+            for col in cat_cols:
+                ct = pd.crosstab(df[target], df[col])
+                if ct.size == 0:
+                    continue
+                chi2, p, dof, _ = stats.chi2_contingency(ct)
+                results_tests.append({
+                    'test': 'chi2',
+                    'feature': col,
+                    'dof': int(dof),
+                    'statistic': float(chi2),
+                    'p_value': float(p),
+                })
+
+        results_tests = sorted(results_tests, key=lambda x: x.get('p_value', 1.0))
+
+        return {
+            'success': True,
+            'results': {
+                'target': target,
+                'n_tests': len(results_tests),
+                'tests': results_tests[:50],
+            },
+            'visualizations': [],
+            'explanations': {
+                'method': 'Tests statistiques conditionnels (t-test, ANOVA, chi2)',
+                'interpretation': "Un p-value faible (ex: < 0.05) suggère une association statistiquement significative.",
+                'warnings': [
+                    'Correction multi-tests non appliquée (p-values brutes).',
+                    'Les hypothèses des tests (normalité, indépendance) doivent être vérifiées.'
+                ]
+            },
+            'python_code': f"""
+import pandas as pd
+import numpy as np
+from scipy import stats
+
+df = pd.read_csv('votre_fichier.csv')
+target = '{target}'
+
+# Exemple: chi2 entre target et une variable catégorielle
+# ct = pd.crosstab(df[target], df['col_categorical'])
+# chi2, p, dof, _ = stats.chi2_contingency(ct)
+""",
+            'execution_time': time.time() - start_time
+        }
+
     except Exception as e:
         return {
             'success': False,

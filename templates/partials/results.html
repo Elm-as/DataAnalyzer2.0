@@ -1,0 +1,33 @@
+{% load json_pretty %}
+<hr />
+<h5><i class="fa-solid fa-square-poll-vertical"></i> Résultats</h5>
+{% if inline_images %}
+  <div class="mb-2">
+    <div class="small text-muted">Visualisations</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for img in inline_images %}
+        <a class="border rounded p-1" href="{{ img.url }}" target="_blank" title="{{ img.name }}">
+          <img src="{{ img.url }}" alt="{{ img.name }}" style="height: 140px; width: auto; display:block;" />
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% else %}
+  <div class="mb-2">
+    <form method="post" action="{% url 'generate_inline_visuals' %}">
+      {% csrf_token %}
+      <button class="btn btn-outline-secondary btn-sm" type="submit"><i class="fa-solid fa-wand-magic-sparkles"></i> Générer les visualisations</button>
+      <span class="text-muted small ms-2">Les images s'afficheront ici après génération.</span>
+    </form>
+  </div>
+{% endif %}
+{% if last_results %}
+  {% if last_results.success %}
+    <div class="alert alert-success">Analyse terminée. Temps: {{ last_results.execution_time|default:"-" }}</div>
+  {% else %}
+    <div class="alert alert-danger">{{ last_results.error|default:"Erreur" }}</div>
+  {% endif %}
+  <pre class="json-box bg-dark text-light">{{ last_results|pretty_json }}</pre>
+{% else %}
+  <div class="text-muted">Aucun résultat pour l'instant.</div>
+{% endif %}

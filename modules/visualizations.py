@@ -273,6 +273,102 @@ def plot_roc_curve(fpr: np.ndarray, tpr: np.ndarray, auc: float, title: str = ""
     plt.tight_layout()
     return fig
 
+
+def plot_time_series(dates: pd.Series, values: pd.Series, title: str = ""):
+    """Trace une série temporelle simple (ligne).
+
+    Args:
+        dates: Série datetime (ou convertible)
+        values: Série numérique
+        title: Titre
+
+    Returns:
+        Figure matplotlib
+    """
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    d = pd.to_datetime(dates, errors='coerce')
+    s = pd.to_numeric(values, errors='coerce')
+    mask = d.notna() & s.notna()
+    d = d[mask]
+    s = s[mask]
+
+    ax.plot(d, s, linewidth=1.2, color='steelblue')
+    ax.set_xlabel(dates.name or 'Date')
+    ax.set_ylabel(values.name or 'Valeur')
+    ax.set_title(title or 'Série temporelle')
+    ax.grid(True, alpha=0.3)
+
+    plt.xticks(rotation=30, ha='right')
+    plt.tight_layout()
+    return fig
+
+
+def plot_cluster_pca_scatter(components_2d: np.ndarray, labels: np.ndarray, title: str = ""):
+    """Scatter 2D (PCA) coloré par cluster.
+
+    Args:
+        components_2d: array (n_samples, 2)
+        labels: array (n_samples,)
+        title: Titre
+
+    Returns:
+        Figure matplotlib
+    """
+    fig, ax = plt.subplots(figsize=(10, 7))
+    X2 = np.asarray(components_2d)
+    y = np.asarray(labels)
+
+    unique = np.unique(y)
+    palette = sns.color_palette('tab10', n_colors=min(10, len(unique)))
+
+    for i, lab in enumerate(unique):
+        m = (y == lab)
+        color = palette[i % len(palette)]
+        name = 'bruit' if int(lab) == -1 else f'cluster {int(lab)}'
+        ax.scatter(X2[m, 0], X2[m, 1], s=25, alpha=0.75, label=name, color=color)
+
+    ax.set_xlabel('PCA 1')
+    ax.set_ylabel('PCA 2')
+    ax.set_title(title or 'Clustering (projection PCA)')
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='best', frameon=True)
+    plt.tight_layout()
+    return fig
+
+
+def plot_top_terms_bar(terms: List[tuple[str, float]], title: str = ""):
+    """Barres horizontales pour top termes (fréquence ou score TF-IDF).
+
+    Args:
+        terms: liste (terme, score)
+        title: Titre
+
+    Returns:
+        Figure matplotlib
+    """
+    terms = [(str(t), float(v)) for t, v in (terms or []) if t is not None]
+    if not terms:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.text(0.5, 0.5, 'Aucun terme à afficher', ha='center', va='center')
+        ax.axis('off')
+        return fig
+
+    labels, values = zip(*terms)
+    labels = list(labels)[::-1]
+    values = list(values)[::-1]
+
+    fig, ax = plt.subplots(figsize=(10, max(4, 0.35 * len(labels) + 1)))
+    colors = sns.color_palette('viridis', n_colors=len(labels))
+    ax.barh(range(len(labels)), values, color=colors, edgecolor='black')
+    ax.set_yticks(range(len(labels)))
+    ax.set_yticklabels(labels)
+    ax.set_xlabel('Score')
+    ax.set_title(title or 'Top termes')
+    ax.grid(True, alpha=0.3, axis='x')
+    plt.tight_layout()
+    return fig
+
 def plot_residuals(y_true: np.ndarray, y_pred: np.ndarray, title: str = ""):
     """
     Affiche les résidus pour la régression

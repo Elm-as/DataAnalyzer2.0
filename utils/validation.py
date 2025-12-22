@@ -15,7 +15,7 @@ def validate_target_not_in_features(features, target):
         (is_valid, message)
     """
     if target in features:
-        return False, "⚠️ ERREUR: La variable cible ne peut pas être utilisée comme variable explicative"
+        return False, "Erreur: La variable cible ne peut pas être utilisée comme variable explicative"
     return True, ""
 
 def validate_analysis_requirements(analysis_type, data_info):

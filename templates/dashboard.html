@@ -1,0 +1,544 @@
+{% load json_pretty %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DataAnalyzer V2</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <link href="/static/css/app.css" rel="stylesheet" />
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <span class="navbar-brand">
+      <i class="fa-solid fa-chart-line"></i>
+      DataAnalyzer V2
+    </span>
+    <div class="d-flex gap-2">
+      <form method="post" action="{% url 'load_titanic' %}">{% csrf_token %}
+        <button class="btn btn-outline-light btn-sm" type="submit"><i class="fa-solid fa-ship"></i> Charger Titanic</button>
+      </form>
+      <form method="post" action="{% url 'load_iris' %}">{% csrf_token %}
+        <button class="btn btn-outline-light btn-sm" type="submit"><i class="fa-solid fa-leaf"></i> Charger IRIS</button>
+      </form>
+      <form method="post" action="{% url 'reset_session' %}">{% csrf_token %}
+        <button class="btn btn-outline-warning btn-sm" type="submit"><i class="fa-solid fa-rotate"></i> Réinitialiser</button>
+      </form>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid my-3">
+  {% if warn_big %}
+    <div class="alert alert-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      Dataset volumineux détecté (&gt; 10 000 lignes). Activez l'échantillonnage pour accélérer les calculs.
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-header">
+      <i class="fa-solid fa-table-columns"></i>
+      Tableau de bord
+    </div>
+    <div class="card-body">
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-load" type="button" role="tab">1. Chargement & Préparation</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-eda" type="button" role="tab">2. Exploration (EDA)</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ml" type="button" role="tab">3. Modélisation (ML)</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-eval" type="button" role="tab">4. Évaluation & Diagnostics</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-sim" type="button" role="tab">5. Simulation & Prédiction</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-export" type="button" role="tab">6. Export & Rapports</button></li>
+      </ul>
+
+      <div class="tab-content pt-3">
+        <div class="tab-pane fade show active" id="tab-load" role="tabpanel">
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <div class="card">
+                <div class="card-header"><i class="fa-solid fa-upload"></i> Import</div>
+                <div class="card-body">
+                  <form method="post" action="{% url 'upload_dataset' %}" enctype="multipart/form-data" class="mb-3">
+                    {% csrf_token %}
+                    <div class="mb-2">
+                      <label class="form-label">Fichier (CSV/Excel/JSON, max 100MB)</label>
+                      {{ upload_form.file }}
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label">Séparateur CSV</label>
+                      {{ upload_form.separator }}
+                    </div>
+                    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-upload"></i> Importer</button>
+                  </form>
+
+                  <div class="small text-muted">Dataset d'exemple</div>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <form method="post" action="{% url 'load_titanic' %}">{% csrf_token %}
+                      <button class="btn btn-outline-secondary btn-sm" type="submit"><i class="fa-solid fa-ship"></i> Titanic</button>
+                    </form>
+                    <form method="post" action="{% url 'load_iris' %}">{% csrf_token %}
+                      <button class="btn btn-outline-secondary btn-sm" type="submit"><i class="fa-solid fa-leaf"></i> IRIS</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <div class="card">
+                <div class="card-header"><i class="fa-solid fa-bullseye"></i> Cible & features</div>
+                <div class="card-body">
+                  {% if data_ctx %}
+                    <div class="mb-2 small text-muted">Type de problème: {{ data_ctx.problem_description|default:"(non défini)" }}</div>
+                    <form method="post" action="{% url 'set_target_and_features' %}">
+                      {% csrf_token %}
+                      <div class="mb-2">
+                        <label class="form-label">Cible</label>
+                        {{ target_form.target }}
+                      </div>
+                      <div class="mb-2">
+                        <label class="form-label">Features (la cible est exclue automatiquement)</label>
+                        {{ features_form.features }}
+                      </div>
+                      <button class="btn btn-success" type="submit"><i class="fa-solid fa-check"></i> Confirmer</button>
+                    </form>
+                  {% else %}
+                    <div class="text-muted">Chargez un dataset pour activer la sélection.</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header"><i class="fa-solid fa-magnifying-glass"></i> Profiling, qualité, types, aperçu</div>
+                <div class="card-body">
+                  {% if data_ctx %}
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                      <span class="badge bg-secondary">Lignes: {{ data_ctx.profile.n_rows }}</span>
+                      <span class="badge bg-secondary">Colonnes: {{ data_ctx.profile.n_columns }}</span>
+                      <span class="badge bg-secondary">Mémoire: {{ data_ctx.profile.memory_usage|floatformat:2 }} MB</span>
+                    </div>
+
+                    <div class="row g-3">
+                      <div class="col-12 col-lg-4">
+                        <div class="small text-muted">Qualité</div>
+                        <ul class="list-group list-group-flush">
+                          <li class="list-group-item d-flex justify-content-between"><span>Valeurs manquantes</span><span>{{ data_ctx.profile.quality_metrics.total_missing }}</span></li>
+                          <li class="list-group-item d-flex justify-content-between"><span>Doublons</span><span>{{ data_ctx.profile.quality_metrics.n_duplicates }}</span></li>
+                          <li class="list-group-item d-flex justify-content-between"><span>Lignes complètes</span><span>{{ data_ctx.profile.quality_metrics.complete_rows }}</span></li>
+                        </ul>
+                      </div>
+
+                      <div class="col-12 col-lg-4">
+                        <div class="small text-muted">Échantillonnage</div>
+                        <form method="post" action="{% url 'set_sampling' %}">
+                          {% csrf_token %}
+                          <div class="form-check mb-2">{{ sampling_form.enabled }} <label class="form-check-label">Activer</label></div>
+                          <div class="mb-2">
+                            <label class="form-label">Méthode</label>
+                            {{ sampling_form.method }}
+                          </div>
+                          <div class="row g-2">
+                            <div class="col-6">
+                              <label class="form-label">Nombre de lignes</label>
+                              {{ sampling_form.n_rows }}
+                            </div>
+                            <div class="col-6">
+                              <label class="form-label">Random seed</label>
+                              {{ sampling_form.random_state }}
+                            </div>
+                          </div>
+                          <button class="btn btn-outline-primary btn-sm mt-2" type="submit"><i class="fa-solid fa-filter"></i> Appliquer</button>
+                        </form>
+                      </div>
+
+                      <div class="col-12 col-lg-4">
+                        <div class="small text-muted">Réaffectation manuelle des types</div>
+                        <form method="post" action="{% url 'set_manual_types' %}">
+                          {% csrf_token %}
+                          <div class="table-responsive" style="max-height: 220px;">
+                            <table class="table table-sm">
+                              <thead><tr><th>Colonne</th><th>Type actif</th></tr></thead>
+                              <tbody>
+                                {% for c in columns_info %}
+                                  <tr>
+                                    <td>{{ c.name }}</td>
+                                    <td>
+                                      <select class="form-select form-select-sm" name="type__{{ c.name }}">
+                                        <option value="numeric" {% if c.current == 'numeric' %}selected{% endif %}>numeric</option>
+                                        <option value="categorical" {% if c.current == 'categorical' %}selected{% endif %}>categorical</option>
+                                        <option value="text" {% if c.current == 'text' %}selected{% endif %}>text</option>
+                                        <option value="date" {% if c.current == 'date' %}selected{% endif %}>date</option>
+                                        <option value="boolean" {% if c.current == 'boolean' %}selected{% endif %}>boolean</option>
+                                      </select>
+                                    </td>
+                                  </tr>
+                                {% endfor %}
+                              </tbody>
+                            </table>
+                          </div>
+                          <button class="btn btn-outline-primary btn-sm" type="submit"><i class="fa-solid fa-sliders"></i> Appliquer</button>
+                          <div class="form-text mt-1">Les conversions sont prudentes (erreurs -> valeurs manquantes).</div>
+                        </form>
+                      </div>
+                    </div>
+
+                    <div class="mt-3">
+                      <div class="small text-muted">Aperçu (10 premières lignes)</div>
+                      <div class="table-responsive" style="max-height: 260px;">
+                        <table class="table table-sm table-striped">
+                          <thead>
+                            <tr>
+                              {% for col in preview_columns %}
+                                <th>{{ col }}</th>
+                              {% endfor %}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for row in preview_rows %}
+                              <tr>
+                                {% for v in row %}
+                                  <td>{{ v }}</td>
+                                {% endfor %}
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div class="mt-3">
+                      <div class="small text-muted">Historique (20 derniers)</div>
+                      {% if runs %}
+                        <ul class="list-group list-group-flush">
+                          {% for r in runs %}
+                            <li class="list-group-item d-flex justify-content-between">
+                              <span><strong>{{ r.analysis_type }}</strong></span>
+                              <span class="text-muted small">{{ r.created_at|date:"Y-m-d H:i" }}</span>
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      {% else %}
+                        <div class="text-muted">Aucun run enregistré.</div>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <div class="text-muted">Aucun dataset chargé.</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {% include 'partials/results.html' %}
+        </div>
+
+        <div class="tab-pane fade" id="tab-eda" role="tabpanel">
+              <div class="row g-3">
+                <div class="col-12 col-lg-6">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-list"></i> Statistiques descriptives</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_descriptive' %}">{% csrf_token %}
+                        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-arrows-left-right"></i> Corrélations</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_correlation' %}">{% csrf_token %}
+                        <div class="row g-2">
+                          <div class="col-6">
+                            <label class="form-label">Méthode</label>
+                            <select name="method" class="form-select"><option value="pearson">Pearson</option><option value="spearman">Spearman</option></select>
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label">Seuil</label>
+                            <input name="threshold" type="number" step="0.01" min="0" max="1" value="0" class="form-control" />
+                          </div>
+                        </div>
+                        <button class="btn btn-primary mt-2" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-chart-column"></i> Distributions</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_distribution' %}">{% csrf_token %}
+                        <div class="mb-2">
+                          <label class="form-label">Bins</label>
+                          <input name="bins" type="number" min="5" max="200" value="30" class="form-control" />
+                        </div>
+                        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-magnifying-glass"></i> Anomalies (IQR)</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_outliers' %}">{% csrf_token %}
+                        <div class="mb-2">
+                          <label class="form-label">Multiplicateur IQR</label>
+                          <input name="iqr_multiplier" type="number" step="0.1" min="0.5" max="10" value="1.5" class="form-control" />
+                        </div>
+                        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-tags"></i> Analyse catégorielle</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_categorical' %}">{% csrf_token %}
+                        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12 col-lg-6">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-flask"></i> Tests statistiques</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_stat_tests' %}">{% csrf_token %}
+                        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {% include 'partials/results.html' %}
+            </div>
+
+            <div class="tab-pane fade" id="tab-ml" role="tabpanel">
+              <div class="row g-3">
+                <div class="col-12">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-robot"></i> Entraînement (régression / classification)</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_ml_train' %}">{% csrf_token %}
+                        <div class="row g-2">
+                          <div class="col-4">
+                            <label class="form-label">Train %</label>
+                            <input name="train_size" type="number" min="60" max="90" value="80" class="form-control" />
+                          </div>
+                          <div class="col-4">
+                            <label class="form-label">Random seed</label>
+                            <input name="random_state" type="number" min="0" max="1000000" value="42" class="form-control" />
+                          </div>
+                          <div class="col-4">
+                            <div class="form-check mt-4">
+                              <input class="form-check-input" type="checkbox" name="scale" checked />
+                              <label class="form-check-label">Standardiser</label>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="mt-2">
+                          <label class="form-label">Modèles (multi-sélection)</label>
+                          <select name="models" multiple class="form-select" size="6">
+                            <option value="logistic">Logistic Regression</option>
+                            <option value="random_forest" selected>Random Forest</option>
+                            <option value="xgboost">XGBoost</option>
+                            <option value="lightgbm">LightGBM</option>
+                            <option value="linear">Linear Regression</option>
+                            <option value="ridge">Ridge</option>
+                            <option value="lasso">Lasso</option>
+                          </select>
+                          <div class="form-text">Pour classification: Logistic/RandomForest/XGBoost/LightGBM. Pour régression: Linear/Ridge/Lasso/RandomForest/XGBoost/LightGBM.</div>
+                        </div>
+                        <button class="btn btn-primary mt-2" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-diagram-project"></i> Clustering</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_clustering' %}">{% csrf_token %}
+                        <button class="btn btn-outline-primary" type="submit"><i class="fa-solid fa-play"></i> Exécuter (K-Means)</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-font"></i> Analyse texte</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_text' %}">{% csrf_token %}
+                        <div class="row g-2">
+                          <div class="col-6">
+                            <label class="form-label">Méthode</label>
+                            <select name="method" class="form-select"><option value="basic">Basique</option><option value="tfidf">TF-IDF</option></select>
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label">Top K</label>
+                            <input name="top_k" type="number" min="5" max="100" value="20" class="form-control" />
+                          </div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                          <div class="col-4">
+                            <label class="form-label">N-grams (max)</label>
+                            <input name="ngram_max" type="number" min="1" max="3" value="1" class="form-control" />
+                          </div>
+                          <div class="col-4">
+                            <label class="form-label">Max features</label>
+                            <input name="max_features" type="number" min="200" max="50000" value="2000" class="form-control" />
+                          </div>
+                          <div class="col-4">
+                            <label class="form-label">Stopwords</label>
+                            <select name="stop_words" class="form-select">
+                              <option value="">Aucun</option>
+                              <option value="english">English</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div class="mt-2">
+                          <label class="form-label">Colonne texte (détectée automatiquement)</label>
+                          <select name="text_column" class="form-select">
+                            {% if data_ctx %}
+                              {% for col, info in data_ctx.profile.columns.items %}
+                                {% if info.type == 'text' %}
+                                  <option value="{{ col }}">{{ col }}</option>
+                                {% endif %}
+                              {% endfor %}
+                            {% endif %}
+                          </select>
+                        </div>
+                        <div class="mt-2">
+                          <label class="form-label">Similarité (top paires)</label>
+                          <input name="similarity_top_n" type="number" min="1" max="50" value="10" class="form-control" />
+                          <div class="form-text">Calcul limité sur un échantillon pour éviter un coût quadratique.</div>
+                        </div>
+                        <button class="btn btn-outline-primary mt-2" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-calendar-days"></i> Séries temporelles</div>
+                    <div class="card-body">
+                      <form method="post" action="{% url 'run_time_series' %}">{% csrf_token %}
+                        <div class="row g-2">
+                          <div class="col-6">
+                            <label class="form-label">Colonne date</label>
+                            <select name="date_column" class="form-select">
+                              {% if data_ctx %}
+                                {% for col, info in data_ctx.profile.columns.items %}
+                                  {% if info.type == 'date' %}
+                                    <option value="{{ col }}">{{ col }}</option>
+                                  {% endif %}
+                                {% endfor %}
+                              {% endif %}
+                            </select>
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label">Colonne valeur</label>
+                            <select name="value_column" class="form-select">
+                              {% if data_ctx %}
+                                {% for col in numeric_columns %}
+                                  <option value="{{ col }}">{{ col }}</option>
+                                {% endfor %}
+                              {% endif %}
+                            </select>
+                          </div>
+                        </div>
+                        <button class="btn btn-outline-primary mt-2" type="submit"><i class="fa-solid fa-play"></i> Exécuter</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {% include 'partials/results.html' %}
+            </div>
+
+            <div class="tab-pane fade" id="tab-eval" role="tabpanel">
+              <div class="text-muted">Diagnostics: les sorties ML (matrice de confusion, ROC, résidus) apparaissent dans la section Résultats.</div>
+              {% include 'partials/results.html' %}
+            </div>
+
+            <div class="tab-pane fade" id="tab-sim" role="tabpanel">
+              {% if model_available %}
+                <div class="card">
+                  <div class="card-header"><i class="fa-solid fa-wand-magic-sparkles"></i> Simulation (1 observation)</div>
+                  <div class="card-body">
+                    <form method="post" action="{% url 'predict' %}">
+                      {% csrf_token %}
+                      <div class="row g-2">
+                        {% for f in feature_schema %}
+                          <div class="col-12 col-md-6">
+                            <label class="form-label">{{ f.name }}</label>
+                            {% if f.type == 'numeric' %}
+                              <input class="form-control" name="feat__{{ f.name }}" type="number" step="any" required />
+                            {% else %}
+                              <input class="form-control" name="feat__{{ f.name }}" type="text" required />
+                              <div class="form-text">Type détecté: {{ f.type }}</div>
+                            {% endif %}
+                          </div>
+                        {% endfor %}
+                      </div>
+                      <button class="btn btn-primary mt-3" type="submit"><i class="fa-solid fa-play"></i> Prédire</button>
+                      <div class="form-text mt-2">La cible n'est jamais demandée en entrée.</div>
+                    </form>
+                  </div>
+                </div>
+              {% else %}
+                <div class="alert alert-secondary">Entraînez un modèle (onglet ML) pour activer la simulation.</div>
+              {% endif %}
+              {% include 'partials/results.html' %}
+            </div>
+
+            <div class="tab-pane fade" id="tab-export" role="tabpanel">
+              <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-primary" href="{% url 'export_bundle_zip' %}"><i class="fa-solid fa-box-archive"></i> Bundle (ZIP)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_session_json' %}" target="_blank"><i class="fa-solid fa-file-code"></i> Export session (JSON)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_python_code_last' %}"><i class="fa-solid fa-code"></i> Export code (Python)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_report_html' %}"><i class="fa-solid fa-file-lines"></i> Rapport (HTML)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_report_pdf' %}"><i class="fa-solid fa-file-pdf"></i> Rapport (PDF)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_visualizations_zip' %}"><i class="fa-solid fa-images"></i> Visualisations (ZIP)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_data' %}?format=csv"><i class="fa-solid fa-file-csv"></i> Données (CSV)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_data' %}?format=excel"><i class="fa-solid fa-file-excel"></i> Données (Excel)</a>
+                <a class="btn btn-outline-secondary" href="{% url 'export_data' %}?format=json"><i class="fa-solid fa-brackets-curly"></i> Données (JSON)</a>
+                {% if model_available %}
+                  <a class="btn btn-outline-secondary" href="{% url 'export_model_bundle' %}"><i class="fa-solid fa-cube"></i> Modèle (bundle)</a>
+                {% else %}
+                  <button class="btn btn-outline-secondary" type="button" disabled><i class="fa-solid fa-cube"></i> Modèle (bundle)</button>
+                {% endif %}
+              </div>
+              <div class="form-text mt-2">Les exports se basent sur l'état courant de la session (types/sampling inclus). Le code Python exporte le dernier bloc reproductible disponible.</div>
+              {% include 'partials/results.html' %}
+            </div>
+          </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

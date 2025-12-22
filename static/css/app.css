@@ -1,0 +1,8 @@
+.json-box {
+  padding: 12px;
+  border-radius: 6px;
+  max-height: 380px;
+  overflow: auto;
+  font-size: 12px;
+}
+input, select, textarea { width: 100%; }

@@ -10,6 +10,10 @@ import pickle
 from datetime import datetime
 import os
 
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Preformatted
+
 def generate_python_code(analysis_type: str, params: Dict) -> str:
     """
     Génère du code Python reproductible
@@ -187,6 +191,38 @@ def generate_html_report(results: Dict, title: str = "Rapport d'Analyse") -> str
 """
     
     return html
+
+
+def generate_pdf_report(results: Dict, filepath: str, title: str = "Rapport d'Analyse") -> bool:
+    """Génère un rapport PDF minimal et autonome.
+
+    Args:
+        results: Résultats à inclure dans le PDF.
+        filepath: Chemin de sortie (.pdf).
+        title: Titre du rapport.
+
+    Returns:
+        True si le PDF est généré.
+    """
+    try:
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        doc = SimpleDocTemplate(filepath, pagesize=A4)
+        styles = getSampleStyleSheet()
+
+        story = []
+        story.append(Paragraph(title, styles['Title']))
+        story.append(Paragraph(f"Généré le {ts} par DataAnalyzer 2.0", styles['Normal']))
+        story.append(Spacer(1, 12))
+
+        story.append(Paragraph("Résultats (JSON)", styles['Heading2']))
+        pretty = json.dumps(results, indent=2, ensure_ascii=False)
+        story.append(Preformatted(pretty, styles['Code']))
+
+        doc.build(story)
+        return True
+    except Exception as e:
+        print(f"Erreur export PDF: {e}")
+        return False
 
 def save_session(session_data: Dict, filepath: str) -> bool:
     """
