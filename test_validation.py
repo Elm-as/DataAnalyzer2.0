@@ -25,7 +25,7 @@ def test_data_loading():
     print("TEST 1: Data Loading")
     print("="*60)
     
-    df, error = load_data('data/Titanic-Dataset.csv')
+    df, error = load_data('modules/data/Titanic-Dataset.csv')
     assert df is not None, f"Failed to load data: {error}"
     assert df.shape == (891, 12), f"Unexpected shape: {df.shape}"
     print(f"OK: Titanic dataset loaded: {df.shape[0]} rows × {df.shape[1]} columns")

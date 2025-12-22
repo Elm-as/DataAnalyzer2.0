@@ -168,7 +168,7 @@ def main():
             
             if data_source == "📊 Dataset d'exemple (Titanic)":
                 if st.button("🚀 Charger Titanic Dataset", type="primary"):
-                    titanic_path = "data/Titanic-Dataset.csv"
+                    titanic_path = "modules/data/Titanic-Dataset.csv"
                     if os.path.exists(titanic_path):
                         df, error = load_data(titanic_path)
                         if df is not None:

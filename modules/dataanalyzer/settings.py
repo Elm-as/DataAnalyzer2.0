@@ -1,7 +1,8 @@
 from pathlib import Path
 import os
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# settings.py est dans modules/dataanalyzer/, on remonte à la racine du repo
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-only-secret-key-change-me')
 
@@ -28,7 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'dashboard',
+    'modules.dashboard',
 ]
 
 MIDDLEWARE = [
@@ -42,7 +43,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'dataanalyzer.urls'
+ROOT_URLCONF = 'modules.dataanalyzer.urls'
 
 TEMPLATES = [
     {
@@ -60,7 +61,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'dataanalyzer.wsgi.application'
+WSGI_APPLICATION = 'modules.dataanalyzer.wsgi.application'
 
 DATABASES = {
     'default': {
@@ -107,7 +108,8 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_NAME = 'dataanalyzer_sessionid'
 
 # Dossiers projet
-DATA_DIR = BASE_DIR / 'data'
+# Les datasets sont stockés dans modules/data/ dans ce repo
+DATA_DIR = BASE_DIR / 'modules' / 'data'
 UPLOAD_DIR = DATA_DIR / 'uploads'
 EXPORT_DIR = BASE_DIR / 'exports'
 

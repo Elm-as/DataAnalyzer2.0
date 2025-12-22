@@ -552,7 +552,8 @@ def reset_session(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def load_titanic(request: HttpRequest) -> HttpResponse:
-    set_loaded_file_path(request, 'data/Titanic-Dataset.csv', separator=',')
+    # Dataset d'exemple inclus dans le repo (modules/data)
+    set_loaded_file_path(request, str(settings.DATA_DIR / 'Titanic-Dataset.csv'), separator=',')
     return redirect('dashboard')
 
 
