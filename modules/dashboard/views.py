@@ -72,6 +72,7 @@ from .services import (
     get_data_context,
     set_loaded_file_path,
     save_uploaded_bytes,
+    save_uploaded_file,
     set_last_results,
     get_last_results,
     export_session_payload,
@@ -642,18 +643,36 @@ def load_iris(request: HttpRequest) -> HttpResponse:
 def upload_dataset(request: HttpRequest) -> HttpResponse:
     form = UploadDatasetForm(request.POST, request.FILES)
     if not form.is_valid():
+        set_last_results(request, {'success': False, 'error': "Upload invalide (formulaire)."})
         return redirect('dashboard')
 
     f = form.cleaned_data['file']
     sep = form.cleaned_data['separator']
+
+    # Formats supportés (cohérent avec modules.data_loader.load_data)
+    name = getattr(f, 'name', '') or ''
+    suffix = Path(name).suffix.lower()
+    allowed = {'.csv', '.txt', '.xlsx', '.xls', '.json'}
+    if suffix and suffix not in allowed:
+        set_last_results(request, {'success': False, 'error': f"Format non supporté: {suffix}"})
+        return redirect('dashboard')
 
     # Limite 100MB
     if f.size > 100 * 1024 * 1024:
         set_last_results(request, {'success': False, 'error': 'Fichier trop volumineux (limite 100MB).'})
         return redirect('dashboard')
 
-    path = save_uploaded_bytes(request, f.name, f.read())
-    set_loaded_file_path(request, path, separator=sep)
+    try:
+        path = save_uploaded_file(request, f)
+    except Exception as e:
+        set_last_results(request, {'success': False, 'error': f"Échec sauvegarde upload: {str(e)}"})
+        return redirect('dashboard')
+
+    # Le séparateur ne s'applique qu'aux CSV/TXT
+    if suffix in {'.csv', '.txt'}:
+        set_loaded_file_path(request, path, separator=sep)
+    else:
+        set_loaded_file_path(request, path, separator=',')
     return redirect('dashboard')
 
 

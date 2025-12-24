@@ -2,9 +2,10 @@
 Data loading module for DataAnalyzer 2.0
 Supports CSV, Excel, JSON formats
 """
-import pandas as pd
 import os
 from typing import Tuple, Dict, Optional
+
+import pandas as pd
 
 def load_data(file_path: str, separator: str = ',') -> Tuple[Optional[pd.DataFrame], str]:
     """
@@ -22,20 +23,62 @@ def load_data(file_path: str, separator: str = ',') -> Tuple[Optional[pd.DataFra
         
         if file_extension in ['.csv', '.txt']:
             # Essayer d'abord avec le séparateur spécifié
-            try:
-                df = pd.read_csv(file_path, sep=separator, encoding='utf-8')
-            except:
-                # Essayer avec l'autre séparateur
-                other_sep = ';' if separator == ',' else ','
+            tried = []
+
+            def _try_read(sep: str, encoding: str, engine: Optional[str] = None, on_bad_lines: Optional[str] = None):
+                kwargs = {}
+                if engine:
+                    kwargs['engine'] = engine
+                if on_bad_lines:
+                    kwargs['on_bad_lines'] = on_bad_lines
+                return pd.read_csv(file_path, sep=sep, encoding=encoding, **kwargs)
+
+            other_sep = ';' if separator == ',' else ','
+            candidates = [
+                (separator, 'utf-8', None, None),
+                (other_sep, 'utf-8', None, None),
+                (separator, 'utf-8-sig', None, None),
+                (other_sep, 'utf-8-sig', None, None),
+                (separator, 'latin-1', None, None),
+                (other_sep, 'latin-1', None, None),
+                # Fallback parsing plus tolérant pour les CSV mal formés
+                (separator, 'utf-8', 'python', 'skip'),
+                (other_sep, 'utf-8', 'python', 'skip'),
+            ]
+
+            last_exc: Optional[Exception] = None
+            df = None
+            for sep, enc, eng, obl in candidates:
                 try:
-                    df = pd.read_csv(file_path, sep=other_sep, encoding='utf-8')
-                except:
-                    # Essayer avec utf-8-sig pour les fichiers avec BOM
-                    try:
-                        df = pd.read_csv(file_path, sep=separator, encoding='utf-8-sig')
-                    except:
-                        # Dernier recours: latin-1
-                        df = pd.read_csv(file_path, sep=separator, encoding='latin-1')
+                    df = _try_read(sep=sep, encoding=enc, engine=eng, on_bad_lines=obl)
+                    tried.append((sep, enc, eng, obl))
+                    break
+                except Exception as e:
+                    last_exc = e
+                    continue
+
+            if df is None:
+                return None, f"Erreur lors du chargement: {str(last_exc) if last_exc else 'inconnue'}"
+
+            # Heuristique: si une seule colonne, tenter l'autre séparateur (souvent mauvais choix)
+            try:
+                if df.shape[1] == 1:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as fh:
+                        for line in fh:
+                            line = (line or '').strip()
+                            if not line:
+                                continue
+                            # Si la ligne contient clairement l'autre séparateur, re-tenter
+                            if other_sep in line and line.count(other_sep) >= line.count(separator):
+                                try:
+                                    df2 = pd.read_csv(file_path, sep=other_sep, encoding='utf-8')
+                                    if df2.shape[1] > df.shape[1]:
+                                        df = df2
+                                except Exception:
+                                    pass
+                            break
+            except Exception:
+                pass
                     
         elif file_extension in ['.xlsx', '.xls']:
             df = pd.read_excel(file_path, engine='openpyxl' if file_extension == '.xlsx' else None)
@@ -46,7 +89,7 @@ def load_data(file_path: str, separator: str = ',') -> Tuple[Optional[pd.DataFra
         else:
             return None, f"Format de fichier non supporté: {file_extension}"
         
-        if df.empty:
+        if df is None or df.empty:
             return None, "Le fichier est vide"
             
         return df, ""

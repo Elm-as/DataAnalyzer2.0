@@ -10,6 +10,8 @@ from datetime import date, datetime
 import pandas as pd
 
 from django.conf import settings
+from django.core.files.uploadedfile import UploadedFile
+from django.utils.text import get_valid_filename
 
 from modules.data_loader import load_data
 from modules.data_profiler import profile_dataframe
@@ -69,9 +71,37 @@ def save_uploaded_bytes(request, filename: str, content: bytes) -> str:
     upload_dir = Path(settings.UPLOAD_DIR)
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    safe_name = filename.replace('..', '.').replace('/', '_').replace('\\', '_')
+    # Évite traversée de répertoires + normalise le nom
+    safe_name = get_valid_filename(Path(filename).name)
+    safe_name = safe_name.replace('..', '.')
+    if not safe_name:
+        safe_name = 'upload'
+    # Limite la longueur pour éviter les erreurs OS
+    safe_name = safe_name[:180]
     path = upload_dir / f"{session_key}__{safe_name}"
     path.write_bytes(content)
+    return str(path)
+
+
+def save_uploaded_file(request, uploaded_file: UploadedFile) -> str:
+    """Sauvegarde un fichier Django UploadedFile en streaming (mémoire stable)."""
+    session_key = ensure_session_key(request)
+    upload_dir = Path(settings.UPLOAD_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    original_name = getattr(uploaded_file, 'name', '') or 'upload'
+    safe_name = get_valid_filename(Path(original_name).name)
+    safe_name = safe_name.replace('..', '.')
+    if not safe_name:
+        safe_name = 'upload'
+    safe_name = safe_name[:180]
+
+    path = upload_dir / f"{session_key}__{safe_name}"
+
+    with path.open('wb') as out:
+        for chunk in uploaded_file.chunks():
+            out.write(chunk)
+
     return str(path)
 
 
