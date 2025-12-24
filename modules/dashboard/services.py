@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 import json
+import math
+from datetime import date, datetime
 
 import pandas as pd
 
@@ -155,7 +157,7 @@ def get_data_context(request) -> Tuple[Optional[DataContext], Optional[str]]:
 
 
 def set_last_results(request, payload: Dict[str, Any]) -> None:
-    request.session[SESSION_KEY_LAST_RESULTS] = payload
+    request.session[SESSION_KEY_LAST_RESULTS] = _json_safe(payload)
 
 
 def get_last_results(request) -> Optional[Dict[str, Any]]:
@@ -163,7 +165,7 @@ def get_last_results(request) -> Optional[Dict[str, Any]]:
 
 
 def export_session_payload(request, ctx: Optional[DataContext]) -> Dict[str, Any]:
-    return {
+    return _json_safe({
         'meta': {
             'app': 'DataAnalyzer V2 (Django)',
         },
@@ -180,4 +182,78 @@ def export_session_payload(request, ctx: Optional[DataContext]) -> Dict[str, Any
             'sampling': request.session.get(SESSION_KEY_SAMPLING) or {},
         },
         'last_results': request.session.get(SESSION_KEY_LAST_RESULTS) or {},
-    }
+    })
+
+
+def _json_safe(value: Any) -> Any:
+    """Convertit récursivement en types sérialisables JSON.
+
+    Objectif: pouvoir stocker les résultats en session Django (JSON serializer)
+    même si des numpy/pandas scalars apparaissent dans les métriques.
+    """
+    if value is None:
+        return None
+
+    # pandas NA / NaT
+    try:
+        if value is pd.NA:
+            return None
+    except Exception:
+        pass
+
+    # Path
+    if isinstance(value, Path):
+        return str(value)
+
+    # datetime/date
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    # pandas Timestamp
+    try:
+        if isinstance(value, pd.Timestamp):
+            if pd.isna(value):
+                return None
+            return value.isoformat()
+    except Exception:
+        pass
+
+    # dict
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+
+    # list/tuple/set
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(v) for v in value]
+
+    # numpy scalars/arrays
+    try:
+        import numpy as np
+
+        if isinstance(value, np.ndarray):
+            return _json_safe(value.tolist())
+
+        if isinstance(value, np.generic):
+            return _json_safe(value.item())
+    except Exception:
+        pass
+
+    # floats: éviter NaN/inf qui cassent certains encodeurs
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return value
+
+    # ints/str/bool
+    if isinstance(value, (int, str, bool)):
+        return value
+
+    # pandas Series / Index
+    try:
+        if isinstance(value, (pd.Series, pd.Index)):
+            return _json_safe(value.tolist())
+    except Exception:
+        pass
+
+    # fallback: string
+    return str(value)

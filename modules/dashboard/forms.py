@@ -2,12 +2,16 @@ from django import forms
 
 
 class UploadDatasetForm(forms.Form):
-    file = forms.FileField(required=True)
-    separator = forms.ChoiceField(choices=[(',', 'Virgule (,)'), (';', 'Point-virgule (;)')], required=True)
+    file = forms.FileField(required=True, widget=forms.ClearableFileInput(attrs={'class': 'form-control'}))
+    separator = forms.ChoiceField(
+        choices=[(',', 'Virgule (,)'), (';', 'Point-virgule (;)')],
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
 
 
 class TargetSelectionForm(forms.Form):
-    target = forms.ChoiceField(required=True)
+    target = forms.ChoiceField(required=True, widget=forms.Select(attrs={'class': 'form-select'}))
 
     def __init__(self, *args, **kwargs):
         columns = kwargs.pop('columns', [])
@@ -16,12 +20,18 @@ class TargetSelectionForm(forms.Form):
 
 
 class FeatureSelectionForm(forms.Form):
-    features = forms.MultipleChoiceField(required=False, widget=forms.SelectMultiple(attrs={'size': '10'}))
+    features = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input feature-checkbox'}),
+        help_text="Décochez pour désactiver des variables.",
+    )
 
     def __init__(self, *args, **kwargs):
         columns = kwargs.pop('columns', [])
+        target = kwargs.pop('target', None)
         super().__init__(*args, **kwargs)
-        self.fields['features'].choices = [(c, c) for c in columns]
+        cols = [c for c in columns if c and c != target]
+        self.fields['features'].choices = [(c, c) for c in cols]
 
 
 class SamplingForm(forms.Form):
@@ -35,26 +45,30 @@ class SamplingForm(forms.Form):
 
 
 class CorrelationParamsForm(forms.Form):
-    method = forms.ChoiceField(choices=[('pearson', 'Pearson'), ('spearman', 'Spearman')], required=True)
-    threshold = forms.FloatField(required=True, min_value=0.0, max_value=1.0, initial=0.0)
+    method = forms.ChoiceField(
+        choices=[('pearson', 'Pearson'), ('spearman', 'Spearman')],
+        required=True,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    threshold = forms.FloatField(required=True, min_value=0.0, max_value=1.0, initial=0.0, widget=forms.NumberInput(attrs={'class': 'form-control'}))
 
 
 class OutliersParamsForm(forms.Form):
-    iqr_multiplier = forms.FloatField(required=True, min_value=0.5, max_value=10.0, initial=1.5)
+    iqr_multiplier = forms.FloatField(required=True, min_value=0.5, max_value=10.0, initial=1.5, widget=forms.NumberInput(attrs={'class': 'form-control'}))
 
 
 class DistributionParamsForm(forms.Form):
-    bins = forms.IntegerField(required=True, min_value=5, max_value=200, initial=30)
+    bins = forms.IntegerField(required=True, min_value=5, max_value=200, initial=30, widget=forms.NumberInput(attrs={'class': 'form-control'}))
 
 
 class MLParamsForm(forms.Form):
-    train_size = forms.IntegerField(required=True, min_value=60, max_value=90, initial=80)
-    random_state = forms.IntegerField(required=True, min_value=0, max_value=1_000_000, initial=42)
+    train_size = forms.IntegerField(required=True, min_value=60, max_value=90, initial=80, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    random_state = forms.IntegerField(required=True, min_value=0, max_value=1_000_000, initial=42, widget=forms.NumberInput(attrs={'class': 'form-control'}))
     scale = forms.BooleanField(required=False, initial=True)
 
     models = forms.MultipleChoiceField(
         required=False,
-        widget=forms.SelectMultiple(attrs={'size': '6'}),
+        widget=forms.SelectMultiple(attrs={'size': '6', 'class': 'form-select'}),
         choices=[
             ('logistic', 'Logistic Regression'),
             ('random_forest', 'Random Forest'),

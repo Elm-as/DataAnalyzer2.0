@@ -5,4 +5,12 @@
   overflow: auto;
   font-size: 12px;
 }
-input, select, textarea { width: 100%; }
+input:not([type=checkbox]):not([type=radio]), select, textarea { width: 100%; }
+
+.features-panel {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 6px;
+  padding: 10px;
+}

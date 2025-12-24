@@ -85,6 +85,69 @@ from .services import (
 from .ml_storage import ModelBundle, save_bundle, load_bundle
 
 
+_MODEL_LABELS: dict[str, str] = {
+    'logistic': 'Logistic Regression',
+    'random_forest': 'Random Forest',
+    'xgboost': 'XGBoost',
+    'lightgbm': 'LightGBM',
+    'linear': 'Linear Regression',
+    'ridge': 'Ridge',
+    'lasso': 'Lasso',
+}
+
+
+def _extract_ml_summary(last_results: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not last_results or not isinstance(last_results, dict):
+        return None
+    if not last_results.get('success'):
+        return None
+    res = last_results.get('results')
+    if not isinstance(res, dict):
+        return None
+    models = res.get('models')
+    if not isinstance(models, dict) or not models:
+        return None
+
+    best = res.get('best_model')
+    best_score = res.get('best_score')
+
+    kind: str = 'unknown'
+    for _, m in models.items():
+        if not isinstance(m, dict):
+            continue
+        test_metrics = m.get('test_metrics') or {}
+        if isinstance(test_metrics, dict):
+            if 'r2' in test_metrics:
+                kind = 'regression'
+                break
+            if 'f1' in test_metrics or 'roc_auc' in test_metrics:
+                kind = 'classification'
+
+    rows: list[Dict[str, Any]] = []
+    for name, m in models.items():
+        if not isinstance(m, dict):
+            continue
+        tm = m.get('train_metrics') or {}
+        te = m.get('test_metrics') or {}
+        rows.append({
+            'name': name,
+            'label': _MODEL_LABELS.get(str(name), str(name)),
+            'is_best': bool(best and str(best) == str(name)),
+            'train': tm if isinstance(tm, dict) else {},
+            'test': te if isinstance(te, dict) else {},
+        })
+
+    rows.sort(key=lambda r: (0 if r.get('is_best') else 1, str(r.get('label') or '')))
+
+    return {
+        'kind': kind,
+        'best_model': str(best) if best else None,
+        'best_label': _MODEL_LABELS.get(str(best), str(best)) if best else None,
+        'best_score': best_score,
+        'rows': rows,
+    }
+
+
 def _session_key(request: HttpRequest) -> str:
     if not request.session.session_key:
         request.session.save()
@@ -109,12 +172,14 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 
     upload_form = UploadDatasetForm()
 
-    columns = ctx.df.columns.tolist() if ctx else []
+    columns = sorted(ctx.df.columns.tolist()) if ctx else []
     target_form = TargetSelectionForm(columns=columns, initial={'target': request.session.get(SESSION_KEY_TARGET)})
 
-    default_features = [c for c in columns if c != request.session.get(SESSION_KEY_TARGET)]
-    features_initial = request.session.get(SESSION_KEY_FEATURES) or default_features
-    features_form = FeatureSelectionForm(columns=columns, initial={'features': features_initial})
+    target_selected = request.session.get(SESSION_KEY_TARGET)
+    default_features = [c for c in columns if c != target_selected]
+    saved_features = request.session.get(SESSION_KEY_FEATURES)
+    features_initial = saved_features if saved_features is not None else default_features
+    features_form = FeatureSelectionForm(columns=columns, target=target_selected, initial={'features': features_initial})
 
     # sampling
     sampling_initial = request.session.get(SESSION_KEY_SAMPLING) or {}
@@ -126,6 +191,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     })
 
     last_results = get_last_results(request)
+    ml_summary = _extract_ml_summary(last_results)
 
     model_bundle_path = request.session.get(SESSION_KEY_MODEL_BUNDLE_PATH)
     model_available = bool(model_bundle_path)
@@ -133,7 +199,8 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     feature_schema = []
     if ctx:
         target = request.session.get(SESSION_KEY_TARGET)
-        selected = request.session.get(SESSION_KEY_FEATURES) or [c for c in ctx.df.columns.tolist() if c != target]
+        saved = request.session.get(SESSION_KEY_FEATURES)
+        selected = saved if saved is not None else [c for c in ctx.df.columns.tolist() if c != target]
         for col in selected:
             info = (ctx.profile.get('columns') or {}).get(col) or {}
             feature_schema.append({'name': col, 'type': info.get('type', 'unknown')})
@@ -188,6 +255,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
             'features_form': features_form,
             'sampling_form': sampling_form,
             'last_results': last_results,
+            'ml_summary': ml_summary,
             'runs': runs,
             'warn_big': warn_big,
             'preview_columns': preview_columns,
@@ -598,13 +666,17 @@ def set_target_and_features(request: HttpRequest) -> HttpResponse:
 
     columns = ctx.df.columns.tolist()
     target_form = TargetSelectionForm(request.POST, columns=columns)
-    features_form = FeatureSelectionForm(request.POST, columns=columns)
-
-    if not target_form.is_valid() or not features_form.is_valid():
+    if not target_form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Sélection invalide.'})
         return redirect('dashboard')
 
     target = target_form.cleaned_data['target']
+
+    # Recréer le form features en excluant la cible des choix.
+    features_form = FeatureSelectionForm(request.POST, columns=columns, target=target)
+    if not features_form.is_valid():
+        set_last_results(request, {'success': False, 'error': 'Sélection des features invalide.'})
+        return redirect('dashboard')
     features = features_form.cleaned_data.get('features') or []
 
     is_valid, msg = validate_target_not_in_features(features, target)
@@ -637,7 +709,7 @@ def _get_features(request: HttpRequest, ctx) -> list[str]:
     cols = ctx.df.columns.tolist()
     target = request.session.get(SESSION_KEY_TARGET)
     saved = request.session.get(SESSION_KEY_FEATURES)
-    if saved:
+    if saved is not None:
         feats = [c for c in saved if c in cols and c != target]
     else:
         feats = [c for c in cols if c != target]
@@ -762,6 +834,10 @@ def run_ml_train(request: HttpRequest) -> HttpResponse:
         return redirect('dashboard')
 
     features = _get_features(request, ctx)
+
+    if not features:
+        set_last_results(request, {'success': False, 'error': 'Sélectionnez au moins une variable explicative (feature).'} )
+        return redirect('dashboard')
 
     # Règles + prérequis
     is_valid, msg = validate_target_not_in_features(features, target)

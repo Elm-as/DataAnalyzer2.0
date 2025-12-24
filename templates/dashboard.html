@@ -101,7 +101,26 @@
                       </div>
                       <div class="mb-2">
                         <label class="form-label">Features (la cible est exclue automatiquement)</label>
-                        {{ features_form.features }}
+                        <div class="row g-2">
+                          <div class="col-12 col-md-6">
+                            <input id="featuresSearch" type="text" class="form-control" placeholder="Rechercher une colonne…" />
+                          </div>
+                          <div class="col-12 col-md-6 d-flex gap-2 justify-content-md-end">
+                            <button id="featuresSelectAll" class="btn btn-outline-secondary" type="button">Tout sélectionner</button>
+                            <button id="featuresSelectNone" class="btn btn-outline-secondary" type="button">Tout désélectionner</button>
+                            <button id="featuresToggleSort" class="btn btn-outline-secondary" type="button">Tri A→Z</button>
+                          </div>
+                        </div>
+
+                        <div id="featuresPanel" class="features-panel mt-2">
+                          {% for cb in features_form.features %}
+                            <div class="form-check feature-item">
+                              {{ cb.tag }}
+                              <label class="form-check-label" for="{{ cb.id_for_label }}">{{ cb.choice_label }}</label>
+                            </div>
+                          {% endfor %}
+                        </div>
+                        <div class="form-text mt-1">Décoche pour désactiver des variables. La cible est exclue côté serveur et côté UI.</div>
                       </div>
                       <button class="btn btn-success" type="submit"><i class="fa-solid fa-check"></i> Confirmer</button>
                     </form>
@@ -540,5 +559,61 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  (function () {
+    const panel = document.getElementById('featuresPanel');
+    if (!panel) return;
+
+    const search = document.getElementById('featuresSearch');
+    const btnAll = document.getElementById('featuresSelectAll');
+    const btnNone = document.getElementById('featuresSelectNone');
+    const btnSort = document.getElementById('featuresToggleSort');
+
+    function getItems() {
+      return Array.from(panel.querySelectorAll('.feature-item'));
+    }
+
+    function isVisible(el) {
+      return el.style.display !== 'none';
+    }
+
+    function filterItems() {
+      const q = (search?.value || '').trim().toLowerCase();
+      for (const item of getItems()) {
+        const label = item.querySelector('label');
+        const text = (label?.textContent || '').trim().toLowerCase();
+        item.style.display = (!q || text.includes(q)) ? '' : 'none';
+      }
+    }
+
+    function setCheckedForVisible(checked) {
+      for (const item of getItems()) {
+        if (!isVisible(item)) continue;
+        const input = item.querySelector('input[type="checkbox"]');
+        if (input) input.checked = checked;
+      }
+    }
+
+    let asc = true;
+    function sortItems() {
+      const items = getItems();
+      items.sort((a, b) => {
+        const la = (a.querySelector('label')?.textContent || '').trim().toLowerCase();
+        const lb = (b.querySelector('label')?.textContent || '').trim().toLowerCase();
+        return asc ? la.localeCompare(lb) : lb.localeCompare(la);
+      });
+      for (const it of items) panel.appendChild(it);
+      if (btnSort) btnSort.textContent = asc ? 'Tri A→Z' : 'Tri Z→A';
+    }
+
+    search?.addEventListener('input', filterItems);
+    btnAll?.addEventListener('click', () => setCheckedForVisible(true));
+    btnNone?.addEventListener('click', () => setCheckedForVisible(false));
+    btnSort?.addEventListener('click', () => { asc = !asc; sortItems(); });
+
+    // init
+    sortItems();
+  })();
+</script>
 </body>
 </html>

@@ -27,7 +27,69 @@
   {% else %}
     <div class="alert alert-danger">{{ last_results.error|default:"Erreur" }}</div>
   {% endif %}
-  <pre class="json-box bg-dark text-light">{{ last_results|pretty_json }}</pre>
+  {% if last_results.success and ml_summary %}
+    <div class="card mb-2">
+      <div class="card-header"><i class="fa-solid fa-robot"></i> Résumé ML</div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          {% if ml_summary.kind == 'regression' %}
+            <span class="badge bg-secondary">Type: Régression</span>
+          {% elif ml_summary.kind == 'classification' %}
+            <span class="badge bg-secondary">Type: Classification</span>
+          {% else %}
+            <span class="badge bg-secondary">Type: ML</span>
+          {% endif %}
+          {% if ml_summary.best_label %}
+            <span class="badge bg-success">Meilleur: {{ ml_summary.best_label }}</span>
+          {% endif %}
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Modèle</th>
+                {% if ml_summary.kind == 'regression' %}
+                  <th class="text-end">R² (test)</th>
+                  <th class="text-end">RMSE (test)</th>
+                  <th class="text-end">MAE (test)</th>
+                {% else %}
+                  <th class="text-end">Accuracy (test)</th>
+                  <th class="text-end">F1 (test)</th>
+                  <th class="text-end">Precision (test)</th>
+                  <th class="text-end">Recall (test)</th>
+                  <th class="text-end">ROC-AUC (test)</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in ml_summary.rows %}
+                <tr class="{% if row.is_best %}table-success{% endif %}">
+                  <td>
+                    {{ row.label }}
+                    {% if row.is_best %}<span class="badge bg-success ms-1">best</span>{% endif %}
+                  </td>
+                  {% if ml_summary.kind == 'regression' %}
+                    <td class="text-end">{{ row.test.r2|default_if_none:"-"|floatformat:3 }}</td>
+                    <td class="text-end">{{ row.test.rmse|default_if_none:"-"|floatformat:3 }}</td>
+                    <td class="text-end">{{ row.test.mae|default_if_none:"-"|floatformat:3 }}</td>
+                  {% else %}
+                    <td class="text-end">{{ row.test.accuracy|default_if_none:"-"|floatformat:3 }}</td>
+                    <td class="text-end">{{ row.test.f1|default_if_none:"-"|floatformat:3 }}</td>
+                    <td class="text-end">{{ row.test.precision|default_if_none:"-"|floatformat:3 }}</td>
+                    <td class="text-end">{{ row.test.recall|default_if_none:"-"|floatformat:3 }}</td>
+                    <td class="text-end">{{ row.test.roc_auc|default_if_none:"-"|floatformat:3 }}</td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <pre class="json-box bg-dark text-light">{{ last_results|pretty_json }}</pre>
+  {% endif %}
 {% else %}
   <div class="text-muted">Aucun résultat pour l'instant.</div>
 {% endif %}
