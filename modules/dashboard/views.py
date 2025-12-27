@@ -741,8 +741,25 @@ def set_target_and_features(request: HttpRequest) -> HttpResponse:
         set_last_results(request, {'success': False, 'error': msg})
         return redirect(_get_redirect_url(request))
 
+    # Parse manual type changes from POST data (fields starting with type__)
+    manual_types: Dict[str, str] = {}
+    for k, v in request.POST.items():
+        if not k.startswith('type__'):
+            continue
+        col = k[len('type__'):]
+        if v in {'numeric', 'categorical', 'text', 'date', 'boolean'}:
+            manual_types[col] = v
+
+    # Save all changes in one transaction
     request.session[SESSION_KEY_TARGET] = target
     request.session[SESSION_KEY_FEATURES] = [f for f in features if f != target]
+    request.session[SESSION_KEY_MANUAL_TYPES] = manual_types
+    
+    # Set success message
+    set_last_results(request, {
+        'success': True, 
+        'message': 'Configuration enregistrée avec succès. Variable cible, types et features sauvegardés.'
+    })
 
     return redirect(_get_redirect_url(request, wizard_step=4))
 

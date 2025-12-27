@@ -38,17 +38,17 @@ def detect_column_type(series: pd.Series) -> str:
     if pd.api.types.is_bool_dtype(series):
         return 'boolean'
     
-    # Vérifier si les valeurs uniques sont seulement True/False ou 0/1
+    # Vérifier si les valeurs uniques sont seulement True/False (strict boolean detection)
     unique_values = set(series_clean.unique())
-    if unique_values.issubset({True, False, 'True', 'False', 'true', 'false', 1, 0}):
+    # Only classify as boolean if it's exactly 2 unique boolean-like values
+    if len(unique_values) == 2 and unique_values.issubset({True, False, 'True', 'False', 'true', 'false'}):
         return 'boolean'
     
     # Vérifier si c'est numérique
     if pd.api.types.is_numeric_dtype(series):
-        # Vérifier si c'est discret avec peu de valeurs
-        n_unique = series_clean.nunique()
-        if n_unique <= 10 and n_unique < len(series_clean) * 0.05:
-            return 'categorical'
+        # Keep numeric columns as numeric, even if they have few unique values
+        # Low cardinality numeric columns (like SibSp, Parch) should stay numeric
+        # They represent counts/quantities, not categories
         return 'numeric'
     
     # Pour les colonnes object
