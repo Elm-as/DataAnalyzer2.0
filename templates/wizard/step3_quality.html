@@ -1,0 +1,156 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-10">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-shield-halved me-2"></i>
+        Étape 3 : Rapport de Qualité des Données
+      </div>
+      <div class="card-body p-4">
+        <p class="lead mb-4">
+          Analyse de vos données pour optimiser les futures analyses
+        </p>
+
+        <!-- Quality Score -->
+        <div class="row mb-5">
+          <div class="col-12 text-center">
+            <h4 class="mb-4">Score de Qualité Global</h4>
+            <div class="quality-score-circle {{ quality_level }}">
+              <div>
+                <div>{{ quality_score }}%</div>
+                <div style="font-size: 0.9rem; font-weight: normal; text-transform: uppercase;">
+                  {% if quality_level == 'excellent' %}Excellent
+                  {% elif quality_level == 'good' %}Bon
+                  {% elif quality_level == 'fair' %}Moyen
+                  {% else %}Faible
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics Overview -->
+        <div class="row g-3 mb-5">
+          <div class="col-12">
+            <h5 class="mb-3">
+              <i class="fa-solid fa-chart-simple me-2"></i>
+              Métriques de Complétude
+            </h5>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ data_ctx.profile.n_rows }}</div>
+              <div class="metric-label">Lignes totales</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ data_ctx.profile.quality_metrics.complete_rows }}</div>
+              <div class="metric-label">Lignes complètes</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value text-{% if data_ctx.profile.quality_metrics.pct_missing < 5 %}success{% elif data_ctx.profile.quality_metrics.pct_missing < 15 %}warning{% else %}danger{% endif %}">
+                {{ data_ctx.profile.quality_metrics.pct_missing|floatformat:1 }}%
+              </div>
+              <div class="metric-label">Valeurs N/A</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value text-{% if data_ctx.profile.quality_metrics.n_duplicates == 0 %}success{% else %}warning{% endif %}">
+                {{ data_ctx.profile.quality_metrics.n_duplicates }}
+              </div>
+              <div class="metric-label">Doublons</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column Details -->
+        <div class="mb-5">
+          <h5 class="mb-3">
+            <i class="fa-solid fa-columns me-2"></i>
+            Détail des Colonnes
+          </h5>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead class="table-light">
+                <tr>
+                  <th>Colonne</th>
+                  <th>Type</th>
+                  <th class="text-center">Uniques</th>
+                  <th class="text-center">Manquantes</th>
+                  <th class="text-center">État</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for col, info in data_ctx.profile.columns.items %}
+                  <tr>
+                    <td><strong>{{ col }}</strong></td>
+                    <td>
+                      <span class="badge bg-secondary">{{ info.type }}</span>
+                    </td>
+                    <td class="text-center">{{ info.n_unique }}</td>
+                    <td class="text-center">
+                      {% if info.pct_missing > 0 %}
+                        <span class="text-{% if info.pct_missing < 5 %}success{% elif info.pct_missing < 30 %}warning{% else %}danger{% endif %}">
+                          {{ info.pct_missing|floatformat:1 }}%
+                        </span>
+                      {% else %}
+                        <span class="text-success">0%</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      {% if info.pct_missing > 50 %}
+                        <i class="fa-solid fa-circle-xmark text-danger" title="Problématique"></i>
+                      {% elif info.pct_missing > 30 %}
+                        <i class="fa-solid fa-triangle-exclamation text-warning" title="Attention"></i>
+                      {% else %}
+                        <i class="fa-solid fa-circle-check text-success" title="OK"></i>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Warnings -->
+        {% if warnings %}
+          <div class="mb-4">
+            <h5 class="mb-3">
+              <i class="fa-solid fa-triangle-exclamation me-2 text-warning"></i>
+              Avertissements
+            </h5>
+            {% for warning in warnings %}
+              <div class="warning-box">
+                {{ warning }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <!-- Suggestions -->
+        {% if suggestions %}
+          <div class="mb-4">
+            <h5 class="mb-3">
+              <i class="fa-solid fa-lightbulb me-2 text-info"></i>
+              Suggestions
+            </h5>
+            {% for suggestion in suggestions %}
+              <div class="{% if '✅' in suggestion %}success-box{% else %}suggestion-box{% endif %}">
+                {{ suggestion }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

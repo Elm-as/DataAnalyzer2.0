@@ -1,0 +1,100 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-11">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-eye me-2"></i>
+        Étape 2 : Aperçu des Données
+      </div>
+      <div class="card-body p-4">
+        <p class="lead mb-4">
+          Prévisualisez vos données pour vérifier le format et l'importation correcte.
+        </p>
+
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ data_ctx.profile.n_rows }}</div>
+              <div class="metric-label">Lignes totales</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ data_ctx.profile.n_columns }}</div>
+              <div class="metric-label">Colonnes</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ data_ctx.profile.type_summary.numeric|default:0 }}</div>
+              <div class="metric-label">Numériques</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ data_ctx.profile.type_summary.categorical|default:0 }}</div>
+              <div class="metric-label">Catégorielles</div>
+            </div>
+          </div>
+        </div>
+
+        <h5 class="mb-3">
+          <i class="fa-solid fa-table me-2"></i>
+          Premières 20 lignes
+        </h5>
+        
+        <div class="table-responsive data-preview-table">
+          <table class="table table-striped table-hover">
+            <thead class="table-light">
+              <tr>
+                <th class="text-center" style="width: 50px;">#</th>
+                {% for col in preview_columns %}
+                  <th>{{ col }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in preview_rows %}
+                <tr>
+                  <td class="text-center text-muted">{{ forloop.counter }}</td>
+                  {% for val in row %}
+                    <td>
+                      {% if val is None %}
+                        <span class="text-muted fst-italic">N/A</span>
+                      {% else %}
+                        {{ val }}
+                      {% endif %}
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-4 p-3 bg-light rounded">
+          <h6 class="mb-2">
+            <i class="fa-solid fa-info-circle me-2"></i>
+            À propos des colonnes
+          </h6>
+          <div class="row g-2">
+            {% for col, info in data_ctx.profile.columns.items %}
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge bg-secondary">{{ info.type }}</span>
+                  <span class="text-truncate">{{ col }}</span>
+                  {% if info.pct_missing > 0 %}
+                    <span class="text-danger small">({{ info.pct_missing|floatformat:0 }}% N/A)</span>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

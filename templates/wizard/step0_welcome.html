@@ -1,0 +1,181 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-10">
+    <div class="welcome-hero text-center mb-5">
+      <div class="hero-icon mb-4">
+        <i class="fa-solid fa-chart-line"></i>
+      </div>
+      <h1 class="display-4 fw-bold mb-3">
+        Bienvenue sur DataAnalyzer 2.0
+      </h1>
+      <p class="lead text-muted mb-4">
+        Votre assistant intelligent pour l'analyse de données pas à pas
+      </p>
+      <form method="post" action="{% url 'wizard_start' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-lg px-5 py-3">
+          <i class="fa-solid fa-play me-2"></i>
+          Commencer l'analyse
+        </button>
+      </form>
+    </div>
+
+    <div class="row g-4 mt-5">
+      <div class="col-12">
+        <h2 class="h4 mb-4 text-center">
+          <i class="fa-solid fa-route me-2"></i>
+          Votre parcours en 7 étapes
+        </h2>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 feature-card">
+          <div class="card-body">
+            <div class="feature-icon text-primary mb-3">
+              <i class="fa-solid fa-upload"></i>
+            </div>
+            <h5 class="card-title">1. Import des Données</h5>
+            <p class="card-text text-muted">
+              Importez une ou plusieurs bases de données (CSV, Excel, JSON). 
+              Travaillez sur plusieurs bases simultanément si nécessaire.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 feature-card">
+          <div class="card-body">
+            <div class="feature-icon text-success mb-3">
+              <i class="fa-solid fa-eye"></i>
+            </div>
+            <h5 class="card-title">2. Aperçu des Données</h5>
+            <p class="card-text text-muted">
+              Prévisualisez les premières lignes et colonnes pour vérifier 
+              le format et l'importation correcte de vos données.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 feature-card">
+          <div class="card-body">
+            <div class="feature-icon text-warning mb-3">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h5 class="card-title">3. Rapport de Qualité</h5>
+            <p class="card-text text-muted">
+              Analyse complète : valeurs manquantes, doublons, colonnes problématiques. 
+              Recevez des avertissements et suggestions personnalisés.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 feature-card">
+          <div class="card-body">
+            <div class="feature-icon text-info mb-3">
+              <i class="fa-solid fa-sliders"></i>
+            </div>
+            <h5 class="card-title">4. Configuration</h5>
+            <p class="card-text text-muted">
+              Sélectionnez votre variable cible, vérifiez les types de données, 
+              et choisissez les features pertinentes pour l'analyse.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 feature-card">
+          <div class="card-body">
+            <div class="feature-icon text-danger mb-3">
+              <i class="fa-solid fa-list-check"></i>
+            </div>
+            <h5 class="card-title">5. Options d'Analyse</h5>
+            <p class="card-text text-muted">
+              Choisissez parmi les analyses de base (statistiques, corrélations) 
+              et avancées (ML, Deep Learning). Activez uniquement ce qui est possible.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 feature-card">
+          <div class="card-body">
+            <div class="feature-icon text-primary mb-3">
+              <i class="fa-solid fa-chart-column"></i>
+            </div>
+            <h5 class="card-title">6. Résultats</h5>
+            <p class="card-text text-muted">
+              Visualisez tous les résultats par onglets : métriques détaillées, 
+              graphiques, et un résumé complet des analyses effectuées.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-lg-4">
+        <div class="card h-100 feature-card">
+          <div class="card-body">
+            <div class="feature-icon text-success mb-3">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <h5 class="card-title">7. Simulation & Prédiction</h5>
+            <p class="card-text text-muted">
+              Utilisez le meilleur modèle pour faire des prédictions sur de nouvelles données. 
+              Visualisez les probabilités et contributions de chaque variable.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row mt-5">
+      <div class="col-12">
+        <div class="card bg-light">
+          <div class="card-body">
+            <h5 class="card-title">
+              <i class="fa-solid fa-lightbulb me-2 text-warning"></i>
+              Fonctionnalités clés
+            </h5>
+            <ul class="list-unstyled mb-0">
+              <li class="mb-2">
+                <i class="fa-solid fa-check text-success me-2"></i>
+                <strong>Gestion intelligente des corrélations :</strong> Identifiez et gérez les features trop corrélées pour éviter le surentraînement
+              </li>
+              <li class="mb-2">
+                <i class="fa-solid fa-check text-success me-2"></i>
+                <strong>Analyses conditionnelles :</strong> Seules les analyses compatibles avec vos données sont proposées
+              </li>
+              <li class="mb-2">
+                <i class="fa-solid fa-check text-success me-2"></i>
+                <strong>Métriques complètes :</strong> Toutes les métriques professionnelles pour chaque type d'analyse
+              </li>
+              <li class="mb-2">
+                <i class="fa-solid fa-check text-success me-2"></i>
+                <strong>Export complet :</strong> Rapports PDF/HTML, code Python reproductible, modèles entraînés
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-5 mb-4">
+      <form method="post" action="{% url 'wizard_start' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-lg px-5 py-3">
+          <i class="fa-solid fa-rocket me-2"></i>
+          Démarrer maintenant
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

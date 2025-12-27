@@ -1,0 +1,142 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-10">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-upload me-2"></i>
+        Étape 1 : Import des Données
+      </div>
+      <div class="card-body p-4">
+        <p class="lead mb-4">
+          Importez une ou plusieurs bases de données pour commencer votre analyse.
+        </p>
+
+        {% if load_error %}
+          <div class="alert alert-danger">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            {{ load_error }}
+          </div>
+        {% endif %}
+
+        {% if data_ctx %}
+          <div class="alert alert-success">
+            <i class="fa-solid fa-check-circle me-2"></i>
+            <strong>Données chargées :</strong> {{ data_ctx.profile.n_rows }} lignes × {{ data_ctx.profile.n_columns }} colonnes
+          </div>
+        {% endif %}
+
+        <div class="row g-4 mt-3">
+          <!-- Upload File -->
+          <div class="col-12 col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <i class="fa-solid fa-file-arrow-up me-2"></i>
+                Importer un fichier
+              </div>
+              <div class="card-body">
+                <form method="post" action="{% url 'upload_dataset' %}" enctype="multipart/form-data">
+                  {% csrf_token %}
+                  <div class="mb-3">
+                    <label class="form-label">Fichier (CSV/Excel/JSON)</label>
+                    {{ upload_form.file }}
+                    <div class="form-text">Taille maximum : 100 MB</div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Séparateur CSV</label>
+                    {{ upload_form.separator }}
+                  </div>
+                  <button class="btn btn-primary w-100" type="submit">
+                    <i class="fa-solid fa-upload me-2"></i>
+                    Importer
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sample Datasets -->
+          <div class="col-12 col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <i class="fa-solid fa-database me-2"></i>
+                Datasets d'exemple
+              </div>
+              <div class="card-body">
+                <p class="text-muted small mb-3">
+                  Explorez DataAnalyzer avec nos datasets préchargés
+                </p>
+                <div class="d-grid gap-2">
+                  <form method="post" action="{% url 'load_titanic' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-primary w-100" type="submit">
+                      <i class="fa-solid fa-ship me-2"></i>
+                      Titanic Dataset
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'load_iris' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-primary w-100" type="submit">
+                      <i class="fa-solid fa-leaf me-2"></i>
+                      IRIS Dataset
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if data_ctx %}
+          <div class="mt-4">
+            <h5 class="mb-3">
+              <i class="fa-solid fa-info-circle me-2"></i>
+              Informations rapides
+            </h5>
+            <div class="row g-3">
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <div class="metric-value">{{ data_ctx.profile.n_rows }}</div>
+                  <div class="metric-label">Lignes</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <div class="metric-value">{{ data_ctx.profile.n_columns }}</div>
+                  <div class="metric-label">Colonnes</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <div class="metric-value">{{ data_ctx.profile.memory_usage|floatformat:1 }}</div>
+                  <div class="metric-label">MB</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="metric-card">
+                  <div class="metric-value">{{ data_ctx.profile.quality_metrics.pct_missing|floatformat:0 }}%</div>
+                  <div class="metric-label">Manquantes</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block next_button %}
+  {% if data_ctx %}
+    <a href="{% url 'wizard_step' step=2 %}" class="btn btn-primary">
+      Suivant : Aperçu
+      <i class="fa-solid fa-arrow-right ms-2"></i>
+    </a>
+  {% else %}
+    <button class="btn btn-secondary" disabled>
+      Importez des données pour continuer
+    </button>
+  {% endif %}
+{% endblock %}

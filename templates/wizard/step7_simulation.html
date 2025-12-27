@@ -1,0 +1,182 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-10">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-wand-magic-sparkles me-2"></i>
+        Étape 7 : Simulation & Prédiction
+      </div>
+      <div class="card-body p-4">
+        <p class="lead mb-4">
+          Utilisez le meilleur modèle pour faire des prédictions sur de nouvelles données
+        </p>
+
+        {% if model_available %}
+          <div class="alert alert-info mb-4">
+            <i class="fa-solid fa-info-circle me-2"></i>
+            <strong>Modèle disponible :</strong> {{ bundle.problem_type }}
+            <br><small>Target : {{ bundle.target }}</small>
+          </div>
+
+          <form method="post" action="{% url 'predict' %}">
+            {% csrf_token %}
+            
+            <h5 class="mb-3">
+              <i class="fa-solid fa-keyboard me-2"></i>
+              Entrez les valeurs des features
+            </h5>
+            
+            <div class="alert alert-warning mb-4">
+              <i class="fa-solid fa-triangle-exclamation me-2"></i>
+              <strong>Important :</strong> La variable cible <strong>{{ bundle.target }}</strong> n'est jamais demandée en entrée.
+              Le modèle la prédit automatiquement.
+            </div>
+
+            <div class="row g-3">
+              {% for feature in feature_schema %}
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-bold">{{ feature.name }}</label>
+                  {% if feature.type == 'numeric' %}
+                    <input class="form-control" 
+                           name="feat__{{ feature.name }}" 
+                           type="number" 
+                           step="any" 
+                           required 
+                           placeholder="Entrez une valeur numérique" />
+                    <div class="form-text">Type: Numérique</div>
+                  {% else %}
+                    <input class="form-control" 
+                           name="feat__{{ feature.name }}" 
+                           type="text" 
+                           required 
+                           placeholder="Entrez une valeur" />
+                    <div class="form-text">Type: {{ feature.type|title }}</div>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+
+            <div class="d-grid mt-4">
+              <button class="btn btn-primary btn-lg" type="submit">
+                <i class="fa-solid fa-magic me-2"></i>
+                Générer la Prédiction
+              </button>
+            </div>
+          </form>
+
+          {% if last_results and last_results.results %}
+            <div class="mt-5">
+              <h5 class="mb-3">
+                <i class="fa-solid fa-chart-line me-2"></i>
+                Résultat de la Prédiction
+              </h5>
+              
+              <div class="card border-primary">
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <div class="alert alert-success">
+                        <h6 class="mb-2">
+                          <i class="fa-solid fa-bullseye me-2"></i>
+                          Prédiction pour <strong>{{ last_results.results.target }}</strong>
+                        </h6>
+                        
+                        {% if last_results.results.prediction %}
+                          <div class="mt-3">
+                            <strong>Valeur prédite:</strong>
+                            <div class="display-6 text-primary mt-2">
+                              {{ last_results.results.prediction.0 }}
+                            </div>
+                          </div>
+                        {% elif last_results.results.prediction_raw %}
+                          <div class="mt-3">
+                            <strong>Valeur prédite:</strong>
+                            <div class="display-6 text-primary mt-2">
+                              {{ last_results.results.prediction_raw.0|floatformat:4 }}
+                            </div>
+                          </div>
+                        {% endif %}
+
+                        {% if last_results.results.prediction_proba %}
+                          <div class="mt-4">
+                            <h6 class="mb-2">Probabilités par classe:</h6>
+                            <div class="row g-2">
+                              {% for proba in last_results.results.prediction_proba.0 %}
+                                <div class="col-auto">
+                                  <div class="badge bg-info">
+                                    Classe {{ forloop.counter0 }}: {{ proba|floatformat:3 }}
+                                  </div>
+                                </div>
+                              {% endfor %}
+                            </div>
+                          </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {% if last_results.explanations %}
+                <div class="mt-4">
+                  <h6 class="mb-2">
+                    <i class="fa-solid fa-lightbulb me-2"></i>
+                    Interprétation
+                  </h6>
+                  <div class="alert alert-light">
+                    {{ last_results.explanations.interpretation }}
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+
+          <div class="mt-5">
+            <h5 class="mb-3">
+              <i class="fa-solid fa-info-circle me-2"></i>
+              À propos de la simulation
+            </h5>
+            <ul class="list-unstyled">
+              <li class="mb-2">
+                <i class="fa-solid fa-check text-success me-2"></i>
+                Le modèle utilise les transformations appliquées lors de l'entraînement (scaling, encoding)
+              </li>
+              <li class="mb-2">
+                <i class="fa-solid fa-check text-success me-2"></i>
+                Les valeurs manquantes sont automatiquement imputées
+              </li>
+              <li class="mb-2">
+                <i class="fa-solid fa-check text-success me-2"></i>
+                Pour la classification, les probabilités sont calculées si le modèle le permet
+              </li>
+              <li class="mb-2">
+                <i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>
+                Les valeurs hors du domaine d'entraînement peuvent donner des résultats imprécis
+              </li>
+            </ul>
+          </div>
+
+        {% else %}
+          <div class="alert alert-warning">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            Aucun modèle disponible. Entraînez un modèle ML à l'étape 5 pour activer la simulation.
+          </div>
+          <a href="{% url 'wizard_step' step=5 %}" class="btn btn-primary">
+            <i class="fa-solid fa-arrow-left me-2"></i>
+            Retour à la sélection des analyses
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block next_button %}
+  <a href="{% url 'wizard_home' %}" class="btn btn-success">
+    <i class="fa-solid fa-check me-2"></i>
+    Terminer l'Analyse
+  </a>
+{% endblock %}

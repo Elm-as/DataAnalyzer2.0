@@ -1,0 +1,193 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-10">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-sliders me-2"></i>
+        Étape 4 : Configuration des Données
+      </div>
+      <div class="card-body p-4">
+        <p class="lead mb-4">
+          Configurez votre variable cible, vérifiez les types et sélectionnez les features pertinentes
+        </p>
+
+        <!-- Section 1: Target Selection -->
+        <div class="mb-5">
+          <h5 class="mb-3">
+            <i class="fa-solid fa-bullseye me-2"></i>
+            1. Sélection de la Variable Cible
+          </h5>
+          
+          {% if target %}
+            <div class="alert alert-info">
+              <i class="fa-solid fa-check-circle me-2"></i>
+              <strong>Cible actuelle :</strong> {{ target }}
+              {% if data_ctx.problem_description %}
+                <br><small>Type de problème : {{ data_ctx.problem_description }}</small>
+              {% endif %}
+            </div>
+          {% endif %}
+
+          <form method="post" action="{% url 'set_target_and_features' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-bold">Variable Cible</label>
+              {{ target_form.target }}
+              <div class="form-text">
+                La variable que vous souhaitez prédire ou analyser
+              </div>
+            </div>
+
+            <!-- Section 2: Column Types -->
+            <div class="mb-5 mt-5">
+              <h5 class="mb-3">
+                <i class="fa-solid fa-tags me-2"></i>
+                2. Vérification et Modification des Types
+              </h5>
+              <p class="text-muted mb-3">
+                Vérifiez que les types de colonnes sont corrects. Modifiez-les si nécessaire.
+              </p>
+              
+              <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Colonne</th>
+                      <th>Type Détecté</th>
+                      <th>Type à Utiliser</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for info in columns_info %}
+                      <tr>
+                        <td><strong>{{ info.name }}</strong></td>
+                        <td>
+                          <span class="badge bg-secondary">{{ info.detected }}</span>
+                        </td>
+                        <td>
+                          <select class="form-select form-select-sm" name="type__{{ info.name }}">
+                            <option value="numeric" {% if info.current == 'numeric' %}selected{% endif %}>Numérique</option>
+                            <option value="categorical" {% if info.current == 'categorical' %}selected{% endif %}>Catégorielle</option>
+                            <option value="text" {% if info.current == 'text' %}selected{% endif %}>Texte</option>
+                            <option value="date" {% if info.current == 'date' %}selected{% endif %}>Date</option>
+                            <option value="boolean" {% if info.current == 'boolean' %}selected{% endif %}>Booléen</option>
+                          </select>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Section 3: Feature Selection -->
+            <div class="mb-4">
+              <h5 class="mb-3">
+                <i class="fa-solid fa-list-check me-2"></i>
+                3. Sélection des Variables Explicatives (Features)
+              </h5>
+              
+              <div class="alert alert-warning">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                <strong>Important :</strong> La variable cible est automatiquement exclue des features.
+                Désélectionnez les variables non pertinentes (IDs, noms, etc.).
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-12 col-md-6">
+                  <input id="featuresSearch" type="text" class="form-control" placeholder="Rechercher une colonne…" />
+                </div>
+                <div class="col-12 col-md-6 d-flex gap-2">
+                  <button id="featuresSelectAll" class="btn btn-outline-secondary btn-sm" type="button">
+                    <i class="fa-solid fa-check-double me-1"></i>
+                    Tout sélectionner
+                  </button>
+                  <button id="featuresSelectNone" class="btn btn-outline-secondary btn-sm" type="button">
+                    <i class="fa-solid fa-xmark me-1"></i>
+                    Tout désélectionner
+                  </button>
+                </div>
+              </div>
+
+              <div id="featuresPanel" class="features-panel">
+                {% for cb in features_form.features %}
+                  <div class="form-check feature-item mb-2">
+                    {{ cb.tag }}
+                    <label class="form-check-label" for="{{ cb.id_for_label }}">
+                      {{ cb.choice_label }}
+                    </label>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="d-grid">
+              <button class="btn btn-primary btn-lg" type="submit">
+                <i class="fa-solid fa-save me-2"></i>
+                Enregistrer la Configuration
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block next_button %}
+  {% if target %}
+    <a href="{% url 'wizard_step' step=5 %}" class="btn btn-primary">
+      Suivant : Sélection des Analyses
+      <i class="fa-solid fa-arrow-right ms-2"></i>
+    </a>
+  {% else %}
+    <button class="btn btn-secondary" disabled>
+      Sélectionnez une cible pour continuer
+    </button>
+  {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const panel = document.getElementById('featuresPanel');
+  if (!panel) return;
+
+  const search = document.getElementById('featuresSearch');
+  const btnAll = document.getElementById('featuresSelectAll');
+  const btnNone = document.getElementById('featuresSelectNone');
+
+  function getItems() {
+    return Array.from(panel.querySelectorAll('.feature-item'));
+  }
+
+  function isVisible(el) {
+    return el.style.display !== 'none';
+  }
+
+  function filterItems() {
+    const q = (search?.value || '').trim().toLowerCase();
+    for (const item of getItems()) {
+      const label = item.querySelector('label');
+      const text = (label?.textContent || '').trim().toLowerCase();
+      item.style.display = (!q || text.includes(q)) ? '' : 'none';
+    }
+  }
+
+  function setCheckedForVisible(checked) {
+    for (const item of getItems()) {
+      if (!isVisible(item)) continue;
+      const input = item.querySelector('input[type="checkbox"]');
+      if (input) input.checked = checked;
+    }
+  }
+
+  search?.addEventListener('input', filterItems);
+  btnAll?.addEventListener('click', () => setCheckedForVisible(true));
+  btnNone?.addEventListener('click', () => setCheckedForVisible(false));
+})();
+</script>
+{% endblock %}
