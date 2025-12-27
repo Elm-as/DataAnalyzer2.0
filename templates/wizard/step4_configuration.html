@@ -211,9 +211,11 @@
   // Navigation handler for next step button
   function handleNextStepClick(e) {
     e.preventDefault();
-    const nextUrl = nextStepBtn.getAttribute('data-next-url');
-    if (nextUrl && !nextStepBtn.disabled) {
-      window.location.href = nextUrl;
+    if (!nextStepBtn.disabled) {
+      const nextUrl = nextStepBtn.getAttribute('data-next-url');
+      if (nextUrl) {
+        window.location.href = nextUrl;
+      }
     }
     return false;
   }

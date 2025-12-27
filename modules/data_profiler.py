@@ -39,6 +39,7 @@ def detect_column_type(series: pd.Series) -> str:
         return 'boolean'
     
     # Vérifier si les valeurs uniques sont seulement True/False ou 0/1 (boolean detection)
+    # Note: series_clean already has NaN values removed, so unique_values only contains actual data
     unique_values = set(series_clean.unique())
     # Classify as boolean if exactly 2 unique boolean-like values (including numeric 0/1)
     if len(unique_values) == 2:

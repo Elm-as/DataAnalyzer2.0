@@ -748,7 +748,7 @@ def set_target_and_features(request: HttpRequest) -> HttpResponse:
     for k, v in request.POST.items():
         if not k.startswith('type__'):
             continue
-        col = k[len('type__'):]
+        col = k.removeprefix('type__')
         # Only accept valid column names from the dataset
         if col not in valid_columns:
             continue
