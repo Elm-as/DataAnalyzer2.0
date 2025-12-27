@@ -38,18 +38,21 @@ def detect_column_type(series: pd.Series) -> str:
     if pd.api.types.is_bool_dtype(series):
         return 'boolean'
     
-    # Vérifier si les valeurs uniques sont seulement True/False ou 0/1
-    unique_values = set(series_clean.unique())
-    if unique_values.issubset({True, False, 'True', 'False', 'true', 'false', 1, 0}):
-        return 'boolean'
-    
-    # Vérifier si c'est numérique
+    # Vérifier si c'est numérique FIRST (before string boolean check)
+    # This ensures numeric 0/1 columns stay numeric for mathematical operations
     if pd.api.types.is_numeric_dtype(series):
-        # Vérifier si c'est discret avec peu de valeurs
-        n_unique = series_clean.nunique()
-        if n_unique <= 10 and n_unique < len(series_clean) * 0.05:
-            return 'categorical'
+        # Keep ALL numeric columns as numeric, even binary 0/1 or low cardinality
+        # Low cardinality numeric columns (like SibSp, Parch, binary 0/1) stay numeric
+        # They represent counts/quantities/flags that may need mathematical operations
         return 'numeric'
+    
+    # Vérifier si les valeurs uniques sont seulement True/False (string boolean detection)
+    # Note: Only check this for non-numeric types to avoid misclassifying numeric 0/1
+    unique_values = set(series_clean.unique())
+    if len(unique_values) == 2:
+        # String boolean values only (for object/string dtype columns)
+        if unique_values.issubset({'True', 'False', 'true', 'false'}):
+            return 'boolean'
     
     # Pour les colonnes object
     if series.dtype == 'object':

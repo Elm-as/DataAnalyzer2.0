@@ -274,6 +274,9 @@ def _wizard_step4_configuration(request: HttpRequest) -> HttpResponse:
         current = manual_types.get(col) or detected
         columns_info.append({'name': col, 'detected': detected, 'current': current})
     
+    # Get last results for success/error messages
+    last_results = get_last_results(request)
+    
     return render(request, 'wizard/step4_configuration.html', {
         'current_step': 4,
         'data_ctx': ctx,
@@ -281,6 +284,7 @@ def _wizard_step4_configuration(request: HttpRequest) -> HttpResponse:
         'features_form': features_form,
         'columns_info': columns_info,
         'target': target,
+        'last_results': last_results,
     })
 
 

@@ -13,6 +13,23 @@
           Configurez votre variable cible, vérifiez les types et sélectionnez les features pertinentes
         </p>
 
+        <!-- Success/Error Messages -->
+        {% if last_results %}
+          {% if last_results.success %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              <i class="fa-solid fa-check-circle me-2"></i>
+              <strong>Succès !</strong> {{ last_results.message|default:"Configuration enregistrée avec succès." }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% elif last_results.error %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              <i class="fa-solid fa-exclamation-triangle me-2"></i>
+              <strong>Erreur :</strong> {{ last_results.error }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endif %}
+        {% endif %}
+
         <!-- Section 1: Target Selection -->
         <div class="mb-5">
           <h5 class="mb-3">
@@ -138,16 +155,13 @@
 {% endblock %}
 
 {% block next_button %}
-  {% if target %}
-    <a href="{% url 'wizard_step' step=5 %}" class="btn btn-primary">
-      Suivant : Sélection des Analyses
-      <i class="fa-solid fa-arrow-right ms-2"></i>
-    </a>
-  {% else %}
-    <button class="btn btn-secondary" disabled>
-      Sélectionnez une cible pour continuer
-    </button>
-  {% endif %}
+  <button id="nextStepBtn" class="btn btn-primary" {% if not target %}disabled{% endif %} aria-describedby="nextStepMessage" data-next-url="{% url 'wizard_step' step=5 %}">
+    Suivant : Sélection des Analyses
+    <i class="fa-solid fa-arrow-right ms-2"></i>
+  </button>
+  <span id="nextStepMessage" class="text-muted ms-2" {% if target %}style="display:none;"{% endif %}>
+    <i class="fa-solid fa-info-circle"></i> Sélectionnez une cible pour continuer
+  </span>
 {% endblock %}
 
 {% block extra_js %}
@@ -188,6 +202,36 @@
   search?.addEventListener('input', filterItems);
   btnAll?.addEventListener('click', () => setCheckedForVisible(true));
   btnNone?.addEventListener('click', () => setCheckedForVisible(false));
+
+  // Dynamic button enabling based on target selection
+  const targetSelect = document.querySelector('select[name="target"]');
+  const nextStepBtn = document.getElementById('nextStepBtn');
+  const nextStepMessage = document.getElementById('nextStepMessage');
+
+  // Navigation handler for next step button
+  function handleNextStepClick(e) {
+    e.preventDefault();
+    if (!nextStepBtn.disabled) {
+      const nextUrl = nextStepBtn.getAttribute('data-next-url');
+      if (nextUrl) {
+        window.location.href = nextUrl;
+      }
+    }
+    return false;
+  }
+
+  if (targetSelect && nextStepBtn && nextStepMessage) {
+    // Add click handler to button
+    nextStepBtn.addEventListener('click', handleNextStepClick);
+    
+    // Update button state on target selection change
+    targetSelect.addEventListener('change', function() {
+      const hasTarget = this.value && this.value !== '';
+      nextStepBtn.disabled = !hasTarget;
+      nextStepMessage.style.display = hasTarget ? 'none' : 'inline';
+      // aria-describedby is always present in HTML for consistent accessibility
+    });
+  }
 })();
 </script>
 {% endblock %}
