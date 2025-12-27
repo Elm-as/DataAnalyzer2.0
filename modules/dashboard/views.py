@@ -97,6 +97,37 @@ _MODEL_LABELS: dict[str, str] = {
 }
 
 
+def _get_redirect_url(request: HttpRequest, wizard_step: Optional[int] = None) -> str:
+    """
+    Determine redirect URL based on request context.
+    If request comes from wizard, redirect to appropriate wizard step.
+    Otherwise, redirect to classic dashboard.
+    """
+    referer = request.META.get('HTTP_REFERER', '')
+    
+    # Check if request is from wizard
+    if '/wizard/' in referer or request.session.get('wizard_step') is not None:
+        # If specific wizard step provided, use it
+        if wizard_step is not None:
+            return reverse('wizard_step', kwargs={'step': wizard_step})
+        # Otherwise, try to extract current step from referer
+        if '/wizard/step/' in referer:
+            try:
+                # Extract step number from URL like /wizard/step/1/
+                parts = referer.split('/wizard/step/')
+                if len(parts) > 1:
+                    step_str = parts[1].split('/')[0]
+                    current_step = int(step_str)
+                    return reverse('wizard_step', kwargs={'step': current_step})
+            except (ValueError, IndexError):
+                pass
+        # Default to wizard step 1 if we can't determine the step
+        return reverse('wizard_step', kwargs={'step': 1})
+    
+    # Default to classic dashboard
+    return reverse('dashboard')
+
+
 def _extract_ml_summary(last_results: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not last_results or not isinstance(last_results, dict):
         return None
@@ -583,7 +614,7 @@ def set_manual_types(request: HttpRequest) -> HttpResponse:
             mapping[col] = v
 
     request.session[SESSION_KEY_MANUAL_TYPES] = mapping
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 def _sanitize_results_for_session(results: Dict[str, Any]) -> Dict[str, Any]:
@@ -616,14 +647,14 @@ def _sanitize_results_for_session(results: Dict[str, Any]) -> Dict[str, Any]:
 @require_POST
 def reset_session(request: HttpRequest) -> HttpResponse:
     clear_session_state(request)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
 def load_titanic(request: HttpRequest) -> HttpResponse:
     # Dataset d'exemple inclus dans le repo (modules/data)
     set_loaded_file_path(request, str(settings.DATA_DIR / 'Titanic-Dataset.csv'), separator=',')
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request, wizard_step=1))
 
 
 @require_POST
@@ -636,7 +667,7 @@ def load_iris(request: HttpRequest) -> HttpResponse:
     csv_bytes = df.to_csv(index=False).encode('utf-8')
     path = save_uploaded_bytes(request, 'iris.csv', csv_bytes)
     set_loaded_file_path(request, path, separator=',')
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request, wizard_step=1))
 
 
 @require_POST
@@ -644,7 +675,7 @@ def upload_dataset(request: HttpRequest) -> HttpResponse:
     form = UploadDatasetForm(request.POST, request.FILES)
     if not form.is_valid():
         set_last_results(request, {'success': False, 'error': "Upload invalide (formulaire)."})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     f = form.cleaned_data['file']
     sep = form.cleaned_data['separator']
@@ -655,25 +686,25 @@ def upload_dataset(request: HttpRequest) -> HttpResponse:
     allowed = {'.csv', '.txt', '.xlsx', '.xls', '.json'}
     if suffix and suffix not in allowed:
         set_last_results(request, {'success': False, 'error': f"Format non supporté: {suffix}"})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     # Limite 100MB
     if f.size > 100 * 1024 * 1024:
         set_last_results(request, {'success': False, 'error': 'Fichier trop volumineux (limite 100MB).'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     try:
         path = save_uploaded_file(request, f)
     except Exception as e:
         set_last_results(request, {'success': False, 'error': f"Échec sauvegarde upload: {str(e)}"})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     # Le séparateur ne s'applique qu'aux CSV/TXT
     if suffix in {'.csv', '.txt'}:
         set_loaded_file_path(request, path, separator=sep)
     else:
         set_loaded_file_path(request, path, separator=',')
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request, wizard_step=1))
 
 
 @require_POST
@@ -681,13 +712,13 @@ def set_target_and_features(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     columns = ctx.df.columns.tolist()
     target_form = TargetSelectionForm(request.POST, columns=columns)
     if not target_form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Sélection invalide.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     target = target_form.cleaned_data['target']
 
@@ -695,25 +726,25 @@ def set_target_and_features(request: HttpRequest) -> HttpResponse:
     features_form = FeatureSelectionForm(request.POST, columns=columns, target=target)
     if not features_form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Sélection des features invalide.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
     features = features_form.cleaned_data.get('features') or []
 
     is_valid, msg = validate_target_not_in_features(features, target)
     if not is_valid:
         set_last_results(request, {'success': False, 'error': msg})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     request.session[SESSION_KEY_TARGET] = target
     request.session[SESSION_KEY_FEATURES] = [f for f in features if f != target]
 
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request, wizard_step=4))
 
 
 @require_POST
 def set_sampling(request: HttpRequest) -> HttpResponse:
     form = SamplingForm(request.POST)
     if not form.is_valid():
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     request.session[SESSION_KEY_SAMPLING] = {
         'enabled': bool(form.cleaned_data.get('enabled')),
@@ -721,7 +752,7 @@ def set_sampling(request: HttpRequest) -> HttpResponse:
         'n_rows': form.cleaned_data.get('n_rows') or 0,
         'random_state': form.cleaned_data.get('random_state') or 42,
     }
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 def _get_features(request: HttpRequest, ctx) -> list[str]:
@@ -740,12 +771,12 @@ def run_descriptive(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     results = descriptive_statistics(ctx.df)
     _store_run(request, 'descriptive_stats', {}, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -753,12 +784,12 @@ def run_correlation(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     form = CorrelationParamsForm(request.POST)
     if not form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Paramètres invalides.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     params = {
         'method': form.cleaned_data['method'],
@@ -767,7 +798,7 @@ def run_correlation(request: HttpRequest) -> HttpResponse:
     results = correlation_analysis(ctx.df, params=params)
     _store_run(request, 'correlation', params, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -775,18 +806,18 @@ def run_distribution(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     form = DistributionParamsForm(request.POST)
     if not form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Paramètres invalides.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     params = {'bins': int(form.cleaned_data['bins'])}
     results = distribution_analysis(ctx.df, params=params)
     _store_run(request, 'distribution', params, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -794,18 +825,18 @@ def run_outliers(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     form = OutliersParamsForm(request.POST)
     if not form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Paramètres invalides.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     params = {'iqr_multiplier': float(form.cleaned_data['iqr_multiplier'])}
     results = detect_outliers(ctx.df, params=params)
     _store_run(request, 'anomaly_detection', params, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -813,12 +844,12 @@ def run_categorical(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     results = categorical_analysis(ctx.df)
     _store_run(request, 'categorical_analysis', {}, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -829,7 +860,7 @@ def run_stat_tests(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     target = request.session.get(SESSION_KEY_TARGET)
     params: Dict[str, Any] = {'target': target}
@@ -837,7 +868,7 @@ def run_stat_tests(request: HttpRequest) -> HttpResponse:
     results = statistical_tests(ctx.df, target=target)
     _store_run(request, 'statistical_tests', params, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -845,30 +876,30 @@ def run_ml_train(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     target = request.session.get(SESSION_KEY_TARGET)
     if not target:
         set_last_results(request, {'success': False, 'error': 'Sélectionnez une variable cible.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     features = _get_features(request, ctx)
 
     if not features:
         set_last_results(request, {'success': False, 'error': 'Sélectionnez au moins une variable explicative (feature).'} )
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     # Règles + prérequis
     is_valid, msg = validate_target_not_in_features(features, target)
     if not is_valid:
         set_last_results(request, {'success': False, 'error': msg})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     # params
     form = MLParamsForm(request.POST)
     if not form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Paramètres ML invalides.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     train_size = int(form.cleaned_data['train_size']) / 100.0
     test_size = 1.0 - train_size
@@ -889,14 +920,14 @@ def run_ml_train(request: HttpRequest) -> HttpResponse:
         ok, msg2 = validate_analysis_requirements('regression', data_info)
         if not ok:
             set_last_results(request, {'success': False, 'error': msg2})
-            return redirect('dashboard')
+            return redirect(_get_redirect_url(request))
         results = train_regression_model(ctx.df, target=target, features=features, params=params)
         _store_run(request, 'regression', params, results)
     else:
         ok, msg2 = validate_analysis_requirements('classification', data_info)
         if not ok:
             set_last_results(request, {'success': False, 'error': msg2})
-            return redirect('dashboard')
+            return redirect(_get_redirect_url(request))
         results = train_classification_model(ctx.df, target=target, features=features, params=params)
         _store_run(request, 'classification', params, results)
 
@@ -926,7 +957,7 @@ def run_ml_train(request: HttpRequest) -> HttpResponse:
         pass
 
     set_last_results(request, _sanitize_results_for_session(results))
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -934,17 +965,17 @@ def predict(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     bundle_path = request.session.get(SESSION_KEY_MODEL_BUNDLE_PATH)
     if not bundle_path:
         set_last_results(request, {'success': False, 'error': 'Aucun modèle disponible. Lancez un entraînement ML.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     bundle = load_bundle(bundle_path)
     if bundle.model is None:
         set_last_results(request, {'success': False, 'error': 'Modèle introuvable dans le bundle.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     # Construire une ligne d'entrée à partir des features (sans jamais demander la cible)
     row: Dict[str, Any] = {}
@@ -1010,7 +1041,7 @@ def predict(request: HttpRequest) -> HttpResponse:
             pass
 
     set_last_results(request, payload)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -1018,19 +1049,19 @@ def run_clustering(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     numeric_cols = ctx.df.select_dtypes(include=['number']).columns.tolist()
     if len(numeric_cols) < 2:
         set_last_results(request, {'success': False, 'error': 'Clustering nécessite au moins 2 variables numériques.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     features = numeric_cols[:6]
     params: Dict[str, Any] = {'method': 'kmeans', 'n_clusters': 3, 'scale': True, 'features': features}
     results = clustering_analysis(ctx.df, features=features, params=params)
     _store_run(request, 'clustering', params, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -1038,17 +1069,17 @@ def run_text(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     text_cols = [c for c, info in ctx.profile.get('columns', {}).items() if info.get('type') == 'text']
     if not text_cols:
         set_last_results(request, {'success': False, 'error': 'Aucune colonne texte détectée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     form = TextAnalysisForm(request.POST, columns=text_cols)
     if not form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Paramètres invalides.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     params = {
         'method': form.cleaned_data['method'],
@@ -1063,7 +1094,7 @@ def run_text(request: HttpRequest) -> HttpResponse:
     results = analyze_text(ctx.df, text_column=form.cleaned_data['text_column'], params=params)
     _store_run(request, 'text_analysis', params, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 @require_POST
@@ -1071,18 +1102,18 @@ def run_time_series(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     date_cols = [c for c, info in ctx.profile.get('columns', {}).items() if info.get('type') == 'date']
     value_cols = ctx.df.select_dtypes(include=['number']).columns.tolist()
     if not date_cols or not value_cols:
         set_last_results(request, {'success': False, 'error': 'Séries temporelles nécessite une colonne date et une colonne numérique.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     form = TimeSeriesForm(request.POST, date_columns=date_cols, value_columns=value_cols)
     if not form.is_valid():
         set_last_results(request, {'success': False, 'error': 'Paramètres invalides.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     params: Dict[str, Any] = {
         'date_column': form.cleaned_data['date_column'],
@@ -1096,7 +1127,7 @@ def run_time_series(request: HttpRequest) -> HttpResponse:
     )
     _store_run(request, 'time_series', params, results)
     set_last_results(request, results)
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 def export_session_json(request: HttpRequest) -> HttpResponse:
@@ -1115,7 +1146,7 @@ def export_report_html(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     payload = export_session_payload(request, ctx)
     html = generate_html_report(payload, title="DataAnalyzer V2 - Rapport")
@@ -1128,14 +1159,14 @@ def export_report_pdf(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     payload = export_session_payload(request, ctx)
     out = _export_dir() / f"{_session_key(request)}__report.pdf"
     ok = generate_pdf_report(payload, filepath=str(out), title="DataAnalyzer V2 - Rapport")
     if not ok:
         set_last_results(request, {'success': False, 'error': 'Échec génération PDF.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
     return FileResponse(open(out, 'rb'), as_attachment=True, filename=out.name, content_type='application/pdf')
 
 
@@ -1143,7 +1174,7 @@ def export_data(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     fmt = (request.GET.get('format') or 'csv').lower().strip()
     if fmt not in {'csv', 'excel', 'json'}:
@@ -1154,7 +1185,7 @@ def export_data(request: HttpRequest) -> HttpResponse:
     ok = export_data_file(ctx.df, str(out), format=fmt)
     if not ok:
         set_last_results(request, {'success': False, 'error': 'Échec export données.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     ctype = 'text/csv' if fmt == 'csv' else ('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if fmt == 'excel' else 'application/json')
     return FileResponse(open(out, 'rb'), as_attachment=True, filename=out.name, content_type=ctype)
@@ -1164,12 +1195,12 @@ def export_model_bundle(request: HttpRequest) -> HttpResponse:
     bundle_path = request.session.get(SESSION_KEY_MODEL_BUNDLE_PATH)
     if not bundle_path:
         set_last_results(request, {'success': False, 'error': 'Aucun modèle disponible. Entraînez un modèle avant export.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     p = Path(bundle_path)
     if not p.exists():
         set_last_results(request, {'success': False, 'error': 'Le fichier modèle est introuvable (bundle manquant).'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     return FileResponse(open(p, 'rb'), as_attachment=True, filename=p.name, content_type='application/octet-stream')
 
@@ -1197,7 +1228,7 @@ def export_visualizations_zip(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     session_key = _session_key(request)
     base_dir = _export_dir() / f"{session_key}__visuals"
@@ -1206,7 +1237,7 @@ def export_visualizations_zip(request: HttpRequest) -> HttpResponse:
 
     if not created:
         set_last_results(request, {'success': False, 'error': 'Aucune visualisation générable (dataset trop petit ou types non compatibles).'} )
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     zip_path = _export_dir() / f"{session_key}__visuals.zip"
     with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
@@ -1222,7 +1253,7 @@ def generate_inline_visuals(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     session_key = _session_key(request)
     base_dir = _export_dir() / f"{session_key}__visuals"
@@ -1230,7 +1261,7 @@ def generate_inline_visuals(request: HttpRequest) -> HttpResponse:
     created = _generate_visualizations_files(request, ctx, base_dir)
     if not created:
         set_last_results(request, {'success': False, 'error': 'Aucun visuel généré.'})
-    return redirect('dashboard')
+    return redirect(_get_redirect_url(request))
 
 
 def inline_visual(request: HttpRequest, filename: str) -> HttpResponse:
@@ -1255,7 +1286,7 @@ def export_bundle_zip(request: HttpRequest) -> HttpResponse:
     ctx, err = get_data_context(request)
     if not ctx:
         set_last_results(request, {'success': False, 'error': err or 'Aucune donnée chargée.'})
-        return redirect('dashboard')
+        return redirect(_get_redirect_url(request))
 
     session_key = _session_key(request)
     out_zip = _export_dir() / f"{session_key}__bundle.zip"
