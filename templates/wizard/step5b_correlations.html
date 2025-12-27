@@ -1,0 +1,154 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-10">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-project-diagram me-2"></i>
+        Gestion des Corrélations Élevées
+      </div>
+      <div class="card-body p-4">
+        <div class="alert alert-info mb-4">
+          <i class="fa-solid fa-info-circle me-2"></i>
+          <strong>Pourquoi gérer les corrélations ?</strong><br>
+          Des features fortement corrélées peuvent causer du surentraînement et réduire la performance du modèle.
+          Cette étape vous permet d'identifier et de supprimer les features redondantes.
+        </div>
+
+        {% if high_correlations %}
+          <h5 class="mb-3">
+            <i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>
+            Corrélations Élevées Détectées (> {{ threshold }})
+          </h5>
+
+          <form method="post" action="{% url 'wizard_manage_correlations' %}">
+            {% csrf_token %}
+            
+            <div class="table-responsive mb-4">
+              <table class="table table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th>Variable 1</th>
+                    <th>Variable 2</th>
+                    <th class="text-center">Corrélation</th>
+                    <th class="text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for corr in high_correlations %}
+                    <tr>
+                      <td><strong>{{ corr.var1 }}</strong></td>
+                      <td><strong>{{ corr.var2 }}</strong></td>
+                      <td class="text-center">
+                        <span class="badge {% if corr.value > 0.9 %}bg-danger{% elif corr.value > 0.8 %}bg-warning{% else %}bg-info{% endif %}">
+                          {{ corr.value|floatformat:3 }}
+                        </span>
+                      </td>
+                      <td class="text-center">
+                        <div class="btn-group" role="group">
+                          <input type="checkbox" class="btn-check" name="remove_features" value="{{ corr.var1 }}" id="remove_{{ corr.var1 }}_{{ forloop.counter }}">
+                          <label class="btn btn-outline-danger btn-sm" for="remove_{{ corr.var1 }}_{{ forloop.counter }}">
+                            Supprimer {{ corr.var1 }}
+                          </label>
+                          
+                          <input type="checkbox" class="btn-check" name="remove_features" value="{{ corr.var2 }}" id="remove_{{ corr.var2 }}_{{ forloop.counter }}">
+                          <label class="btn btn-outline-danger btn-sm" for="remove_{{ corr.var2 }}_{{ forloop.counter }}">
+                            Supprimer {{ corr.var2 }}
+                          </label>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="card bg-light mb-4">
+              <div class="card-body">
+                <h6 class="mb-2">
+                  <i class="fa-solid fa-lightbulb me-2 text-warning"></i>
+                  Conseils pour la sélection
+                </h6>
+                <ul class="mb-0">
+                  <li>Conservez la variable la plus importante pour votre problème métier</li>
+                  <li>Privilégiez les variables avec moins de valeurs manquantes</li>
+                  <li>Gardez les variables plus faciles à collecter/mesurer</li>
+                  <li>En cas de doute, conservez les deux et laissez le modèle décider</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-between">
+              <a href="{% url 'wizard_step' step=5 %}" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left me-2"></i>
+                Retour à la sélection
+              </a>
+              <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-check me-2"></i>
+                Appliquer et Continuer
+              </button>
+            </div>
+          </form>
+
+        {% else %}
+          <div class="alert alert-success">
+            <i class="fa-solid fa-check-circle me-2"></i>
+            <strong>Aucune corrélation élevée détectée</strong><br>
+            Vos features semblent suffisamment indépendantes. Vous pouvez continuer vers les analyses.
+          </div>
+          
+          <div class="d-flex gap-2 justify-content-between">
+            <a href="{% url 'wizard_step' step=5 %}" class="btn btn-secondary">
+              <i class="fa-solid fa-arrow-left me-2"></i>
+              Retour
+            </a>
+            <a href="{% url 'wizard_run_analyses' %}" class="btn btn-primary">
+              <i class="fa-solid fa-play me-2"></i>
+              Lancer les Analyses
+            </a>
+          </div>
+        {% endif %}
+
+        <!-- Correlation Matrix Visualization -->
+        {% if correlation_matrix %}
+          <div class="mt-5">
+            <h5 class="mb-3">
+              <i class="fa-solid fa-table-cells me-2"></i>
+              Matrice de Corrélation
+            </h5>
+            <div class="text-center">
+              <img src="data:image/png;base64,{{ correlation_plot }}" alt="Matrice de corrélation" class="img-fluid" style="max-width: 800px;">
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Prevent selecting both variables in the same correlation pair
+document.addEventListener('DOMContentLoaded', function() {
+  const checkboxGroups = document.querySelectorAll('.btn-group');
+  
+  checkboxGroups.forEach(group => {
+    const checkboxes = group.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', function() {
+        if (this.checked) {
+          // Uncheck the other checkbox in this group
+          checkboxes.forEach(other => {
+            if (other !== this) {
+              other.checked = false;
+            }
+          });
+        }
+      });
+    });
+  });
+});
+</script>
+{% endblock %}

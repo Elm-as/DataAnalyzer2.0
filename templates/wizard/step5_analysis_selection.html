@@ -178,6 +178,25 @@
             </button>
           </div>
         </form>
+
+        <div class="mt-4">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="mb-2">
+                <i class="fa-solid fa-project-diagram me-2"></i>
+                Gestion des Corrélations
+              </h6>
+              <p class="mb-2 small text-muted">
+                Avant de lancer les analyses, vous pouvez vérifier si certaines features sont trop corrélées.
+                Des corrélations élevées peuvent causer du surentraînement.
+              </p>
+              <a href="{% url 'wizard_correlation_management' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-chart-line me-2"></i>
+                Gérer les Corrélations
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -525,15 +525,68 @@ def wizard_run_analyses(request: HttpRequest) -> HttpResponse:
     return redirect('wizard_step', step=6)
 
 
+def wizard_correlation_management(request: HttpRequest) -> HttpResponse:
+    """View highly correlated features and select which to remove"""
+    ctx, err = get_data_context(request)
+    
+    if not ctx:
+        return redirect('wizard_step', step=1)
+    
+    features = request.session.get(SESSION_KEY_FEATURES, [])
+    if not features or len(features) < 2:
+        return redirect('wizard_step', step=5)
+    
+    # Calculate correlations
+    df = ctx.df
+    numeric_features = [f for f in features if f in df.select_dtypes(include=['number']).columns]
+    
+    if len(numeric_features) < 2:
+        return redirect('wizard_step', step=5)
+    
+    # Compute correlation matrix
+    corr_matrix = df[numeric_features].corr()
+    
+    # Find high correlations (> 0.7)
+    threshold = 0.7
+    high_correlations = []
+    
+    for i in range(len(corr_matrix.columns)):
+        for j in range(i + 1, len(corr_matrix.columns)):
+            corr_value = abs(corr_matrix.iloc[i, j])
+            if corr_value > threshold:
+                high_correlations.append({
+                    'var1': corr_matrix.columns[i],
+                    'var2': corr_matrix.columns[j],
+                    'value': corr_value
+                })
+    
+    # Sort by correlation value (highest first)
+    high_correlations.sort(key=lambda x: x['value'], reverse=True)
+    
+    return render(request, 'wizard/step5b_correlations.html', {
+        'current_step': 5,
+        'data_ctx': ctx,
+        'high_correlations': high_correlations,
+        'threshold': threshold,
+        'correlation_matrix': corr_matrix.to_dict() if len(high_correlations) > 0 else None,
+    })
+
+
 @require_POST
 def wizard_manage_correlations(request: HttpRequest) -> HttpResponse:
-    """Manage highly correlated features before final analysis"""
-    # This allows users to remove highly correlated features
+    """Apply correlation management - remove selected features"""
     features_to_remove = request.POST.getlist('remove_features')
     
     current_features = request.session.get(SESSION_KEY_FEATURES, [])
     updated_features = [f for f in current_features if f not in features_to_remove]
     
     request.session[SESSION_KEY_FEATURES] = updated_features
+    
+    # Show success message
+    if features_to_remove:
+        set_last_results(request, {
+            'success': True,
+            'message': f"{len(features_to_remove)} feature(s) supprimée(s) pour réduire la corrélation."
+        })
     
     return redirect('wizard_step', step=5)
