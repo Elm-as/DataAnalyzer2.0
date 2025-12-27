@@ -208,7 +208,21 @@
   const nextStepBtn = document.getElementById('nextStepBtn');
   const nextStepMessage = document.getElementById('nextStepMessage');
 
+  // Navigation handler for next step button
+  function handleNextStepClick(e) {
+    e.preventDefault();
+    const nextUrl = nextStepBtn.getAttribute('data-next-url');
+    if (nextUrl && !nextStepBtn.disabled) {
+      window.location.href = nextUrl;
+    }
+    return false;
+  }
+
   if (targetSelect && nextStepBtn && nextStepMessage) {
+    // Add click handler to button
+    nextStepBtn.addEventListener('click', handleNextStepClick);
+    
+    // Update button state on target selection change
     targetSelect.addEventListener('change', function() {
       const hasTarget = this.value && this.value !== '';
       nextStepBtn.disabled = !hasTarget;
@@ -216,17 +230,8 @@
       
       if (hasTarget) {
         nextStepBtn.removeAttribute('aria-describedby');
-        // Update the button to navigate using data attribute
-        nextStepBtn.onclick = function() {
-          const nextUrl = this.getAttribute('data-next-url');
-          if (nextUrl) {
-            window.location.href = nextUrl;
-          }
-          return false;
-        };
       } else {
         nextStepBtn.setAttribute('aria-describedby', 'nextStepMessage');
-        nextStepBtn.onclick = null;
       }
     });
   }
