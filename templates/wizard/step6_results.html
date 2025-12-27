@@ -1,0 +1,210 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-11">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-chart-column me-2"></i>
+        Étape 6 : Résultats des Analyses
+      </div>
+      <div class="card-body p-4">
+        <p class="lead mb-4">
+          Visualisez tous les résultats par onglets avec métriques détaillées
+        </p>
+
+        {% if last_results and last_results.success %}
+          <!-- Results Tabs -->
+          <ul class="nav nav-tabs mb-4" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-summary" type="button" role="tab">
+                <i class="fa-solid fa-file-lines me-2"></i>
+                Résumé
+              </button>
+            </li>
+            {% for analysis_id in selected_analyses %}
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-{{ analysis_id }}" type="button" role="tab">
+                  <i class="fa-solid fa-chart-simple me-2"></i>
+                  {% if analysis_id == 'descriptive' %}Statistiques
+                  {% elif analysis_id == 'correlation' %}Corrélations
+                  {% elif analysis_id == 'distribution' %}Distributions
+                  {% elif analysis_id == 'outliers' %}Anomalies
+                  {% elif analysis_id == 'categorical' %}Catégorielles
+                  {% elif analysis_id == 'regression' %}Régression
+                  {% elif analysis_id == 'classification' %}Classification
+                  {% elif analysis_id == 'clustering' %}Clustering
+                  {% elif analysis_id == 'time_series' %}Séries Temp.
+                  {% endif %}
+                </button>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <div class="tab-content">
+            <!-- Summary Tab -->
+            <div class="tab-pane fade show active" id="tab-summary" role="tabpanel">
+              <h5 class="mb-4">
+                <i class="fa-solid fa-trophy me-2 text-warning"></i>
+                Résumé des Analyses
+              </h5>
+              
+              <div class="row g-4">
+                <div class="col-12">
+                  <div class="card">
+                    <div class="card-body">
+                      <h6 class="card-title mb-3">
+                        <i class="fa-solid fa-check-circle me-2 text-success"></i>
+                        Analyses Complétées
+                      </h6>
+                      <ul class="list-unstyled mb-0">
+                        {% for analysis_id in selected_analyses %}
+                          <li class="mb-2">
+                            <i class="fa-solid fa-circle-check text-success me-2"></i>
+                            {% if analysis_id == 'descriptive' %}Statistiques Descriptives
+                            {% elif analysis_id == 'correlation' %}Analyse des Corrélations
+                            {% elif analysis_id == 'distribution' %}Analyse des Distributions
+                            {% elif analysis_id == 'outliers' %}Détection d'Anomalies
+                            {% elif analysis_id == 'categorical' %}Analyse Catégorielle
+                            {% elif analysis_id == 'regression' %}Régression (ML)
+                            {% elif analysis_id == 'classification' %}Classification (ML)
+                            {% elif analysis_id == 'clustering' %}Clustering
+                            {% elif analysis_id == 'time_series' %}Séries Temporelles
+                            {% endif %}
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {% if last_results.results.best_model %}
+                  <div class="col-12">
+                    <div class="card border-primary">
+                      <div class="card-body">
+                        <h6 class="card-title mb-3">
+                          <i class="fa-solid fa-crown me-2 text-warning"></i>
+                          Meilleur Modèle
+                        </h6>
+                        <div class="row g-3">
+                          <div class="col-md-4">
+                            <strong>Modèle:</strong> {{ last_results.results.best_model }}
+                          </div>
+                          <div class="col-md-4">
+                            <strong>Score:</strong> {{ last_results.results.best_score|floatformat:4 }}
+                          </div>
+                          <div class="col-md-4">
+                            <strong>Temps d'exécution:</strong> {{ last_results.execution_time|floatformat:2 }}s
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="alert alert-info mt-4">
+                <i class="fa-solid fa-info-circle me-2"></i>
+                <strong>Navigation:</strong> Utilisez les onglets ci-dessus pour voir les détails de chaque analyse.
+              </div>
+            </div>
+
+            <!-- Individual Analysis Tabs -->
+            {% for analysis_id in selected_analyses %}
+              <div class="tab-pane fade" id="tab-{{ analysis_id }}" role="tabpanel">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="mb-3">
+                      {% if analysis_id == 'descriptive' %}
+                        📊 Statistiques Descriptives
+                      {% elif analysis_id == 'correlation' %}
+                        📈 Analyse des Corrélations
+                      {% elif analysis_id == 'distribution' %}
+                        📉 Analyse des Distributions
+                      {% elif analysis_id == 'outliers' %}
+                        🔍 Détection d'Anomalies (IQR)
+                      {% elif analysis_id == 'categorical' %}
+                        🏷️ Analyse Catégorielle
+                      {% elif analysis_id == 'regression' %}
+                        🤖 Régression (Machine Learning)
+                      {% elif analysis_id == 'classification' %}
+                        🎯 Classification (Machine Learning)
+                      {% elif analysis_id == 'clustering' %}
+                        🔗 Clustering
+                      {% elif analysis_id == 'time_series' %}
+                        📅 Séries Temporelles
+                      {% endif %}
+                    </h5>
+                    
+                    <div class="alert alert-light">
+                      <i class="fa-solid fa-info-circle me-2"></i>
+                      Les résultats détaillés sont stockés dans la session. 
+                      Utilisez l'export pour obtenir un rapport complet avec toutes les métriques.
+                    </div>
+
+                    {% if last_results.results %}
+                      <div class="bg-light p-3 rounded">
+                        <pre class="mb-0" style="max-height: 400px; overflow: auto;">{{ last_results.results|safe }}</pre>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <!-- Export Options -->
+          <div class="mt-5">
+            <h5 class="mb-3">
+              <i class="fa-solid fa-download me-2"></i>
+              Options d'Export
+            </h5>
+            <div class="d-flex flex-wrap gap-2">
+              <a href="{% url 'export_report_html' %}" class="btn btn-outline-primary">
+                <i class="fa-solid fa-file-lines me-2"></i>
+                Rapport HTML
+              </a>
+              <a href="{% url 'export_report_pdf' %}" class="btn btn-outline-danger">
+                <i class="fa-solid fa-file-pdf me-2"></i>
+                Rapport PDF
+              </a>
+              <a href="{% url 'export_python_code_last' %}" class="btn btn-outline-success">
+                <i class="fa-solid fa-code me-2"></i>
+                Code Python
+              </a>
+              <a href="{% url 'export_bundle_zip' %}" class="btn btn-outline-info">
+                <i class="fa-solid fa-box-archive me-2"></i>
+                Bundle Complet (ZIP)
+              </a>
+            </div>
+          </div>
+
+        {% else %}
+          <div class="alert alert-warning">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            Aucun résultat d'analyse disponible. Retournez à l'étape 5 pour lancer les analyses.
+          </div>
+          <a href="{% url 'wizard_step' step=5 %}" class="btn btn-primary">
+            <i class="fa-solid fa-arrow-left me-2"></i>
+            Retour à la sélection des analyses
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block next_button %}
+  {% if last_results.results.best_model %}
+    <a href="{% url 'wizard_step' step=7 %}" class="btn btn-primary">
+      Suivant : Simulation & Prédiction
+      <i class="fa-solid fa-arrow-right ms-2"></i>
+    </a>
+  {% else %}
+    <a href="{% url 'wizard_home' %}" class="btn btn-success">
+      <i class="fa-solid fa-check me-2"></i>
+      Terminer
+    </a>
+  {% endif %}
+{% endblock %}

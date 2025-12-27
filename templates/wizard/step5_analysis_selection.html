@@ -1,0 +1,263 @@
+{% extends 'wizard/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mb-100">
+  <div class="col-12 col-lg-10">
+    <div class="step-card">
+      <div class="step-card-header">
+        <i class="fa-solid fa-list-check me-2"></i>
+        Étape 5 : Sélection des Analyses
+      </div>
+      <div class="card-body p-4">
+        <p class="lead mb-4">
+          Choisissez les types d'analyses à effectuer sur vos données
+        </p>
+
+        <!-- Summary -->
+        <div class="row g-3 mb-5">
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ n_rows }}</div>
+              <div class="metric-label">Lignes de données</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ n_selected_features }}</div>
+              <div class="metric-label">Colonnes sélectionnées</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">{{ n_numeric_cols }}</div>
+              <div class="metric-label">Colonnes numériques</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="metric-card">
+              <div class="metric-value">~{{ estimated_time }}s</div>
+              <div class="metric-label">Temps estimé</div>
+            </div>
+          </div>
+        </div>
+
+        <form method="post" action="{% url 'wizard_select_analyses' %}">
+          {% csrf_token %}
+
+          <!-- Basic Analyses -->
+          <div class="mb-5">
+            <h5 class="mb-3">
+              📊 Analyses de Base (JavaScript)
+            </h5>
+            <div class="d-flex gap-2 mb-3">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll('basic')">
+                <i class="fa-solid fa-check-double me-1"></i>
+                Tout sélectionner
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectNone('basic')">
+                <i class="fa-solid fa-xmark me-1"></i>
+                Tout désélectionner
+              </button>
+            </div>
+            
+            {% for analysis in basic_analyses %}
+              <div class="analysis-card {% if not analysis.enabled %}disabled{% endif %} {% if analysis.id in selected_analyses %}selected{% endif %}" 
+                   onclick="{% if analysis.enabled %}toggleAnalysis(this, '{{ analysis.id }}'){% endif %}"
+                   data-category="basic">
+                <input type="checkbox" 
+                       name="analyses" 
+                       value="{{ analysis.id }}" 
+                       {% if analysis.id in selected_analyses %}checked{% endif %}
+                       {% if not analysis.enabled %}disabled{% endif %}
+                       style="display: none;"
+                       class="analysis-checkbox">
+                <div class="d-flex align-items-start gap-3">
+                  <div class="flex-shrink-0">
+                    {% if analysis.enabled %}
+                      <i class="fa-solid fa-circle-check text-success fs-4"></i>
+                    {% else %}
+                      <i class="fa-solid fa-circle-xmark text-danger fs-4"></i>
+                    {% endif %}
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <h6 class="mb-0">{{ analysis.name }}</h6>
+                      <span class="analysis-badge basic">{{ analysis.duration }}</span>
+                    </div>
+                    <p class="text-muted small mb-0">{{ analysis.description }}</p>
+                    {% if not analysis.enabled %}
+                      <div class="text-danger small mt-1">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        Conditions non remplies pour cette analyse
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <!-- Advanced Analyses -->
+          <div class="mb-4">
+            <h5 class="mb-3">
+              🧠 Analyses Avancées (Python Backend - ML/DL)
+            </h5>
+            <p class="text-muted small mb-3">
+              Ces analyses utilisent scikit-learn, XGBoost, et d'autres bibliothèques Python puissantes
+            </p>
+            <div class="d-flex gap-2 mb-3">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll('advanced')">
+                <i class="fa-solid fa-check-double me-1"></i>
+                Tout sélectionner
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectNone('advanced')">
+                <i class="fa-solid fa-xmark me-1"></i>
+                Tout désélectionner
+              </button>
+            </div>
+            
+            {% for analysis in advanced_analyses %}
+              <div class="analysis-card {% if not analysis.enabled %}disabled{% endif %} {% if analysis.id in selected_analyses %}selected{% endif %}" 
+                   onclick="{% if analysis.enabled %}toggleAnalysis(this, '{{ analysis.id }}'){% endif %}"
+                   data-category="advanced">
+                <input type="checkbox" 
+                       name="analyses" 
+                       value="{{ analysis.id }}" 
+                       {% if analysis.id in selected_analyses %}checked{% endif %}
+                       {% if not analysis.enabled %}disabled{% endif %}
+                       style="display: none;"
+                       class="analysis-checkbox">
+                <div class="d-flex align-items-start gap-3">
+                  <div class="flex-shrink-0">
+                    {% if analysis.enabled %}
+                      <i class="fa-solid fa-brain text-primary fs-4"></i>
+                    {% else %}
+                      <i class="fa-solid fa-circle-xmark text-danger fs-4"></i>
+                    {% endif %}
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <h6 class="mb-0">{{ analysis.name }}</h6>
+                      <span class="analysis-badge advanced">{{ analysis.duration }}</span>
+                    </div>
+                    <p class="text-muted small mb-0">{{ analysis.description }}</p>
+                    {% if not analysis.enabled %}
+                      <div class="text-danger small mt-1">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                        Conditions non remplies pour cette analyse
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <!-- Summary -->
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="mb-2">
+                <i class="fa-solid fa-info-circle me-2"></i>
+                Résumé de l'analyse
+              </h6>
+              <div class="row">
+                <div class="col-6">
+                  <strong>Analyses sélectionnées:</strong> <span id="selected-count">{{ selected_analyses|length }}</span>
+                </div>
+                <div class="col-6">
+                  <strong>Temps estimé:</strong> <span id="estimated-time">~{{ estimated_time }}s</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="fa-solid fa-save me-2"></i>
+              Enregistrer la Sélection
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-4">
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="mb-2">
+                <i class="fa-solid fa-project-diagram me-2"></i>
+                Gestion des Corrélations
+              </h6>
+              <p class="mb-2 small text-muted">
+                Avant de lancer les analyses, vous pouvez vérifier si certaines features sont trop corrélées.
+                Des corrélations élevées peuvent causer du surentraînement.
+              </p>
+              <a href="{% url 'wizard_correlation_management' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="fa-solid fa-chart-line me-2"></i>
+                Gérer les Corrélations
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block next_button %}
+  <form method="post" action="{% url 'wizard_run_analyses' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-primary btn-lg">
+      <i class="fa-solid fa-play me-2"></i>
+      Lancer les Analyses
+      <i class="fa-solid fa-arrow-right ms-2"></i>
+    </button>
+  </form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleAnalysis(card, analysisId) {
+  if (card.classList.contains('disabled')) return;
+  
+  const checkbox = card.querySelector('input[type="checkbox"]');
+  checkbox.checked = !checkbox.checked;
+  
+  if (checkbox.checked) {
+    card.classList.add('selected');
+  } else {
+    card.classList.remove('selected');
+  }
+  
+  updateSummary();
+}
+
+function selectAll(category) {
+  const cards = document.querySelectorAll(`.analysis-card[data-category="${category}"]:not(.disabled)`);
+  cards.forEach(card => {
+    const checkbox = card.querySelector('input[type="checkbox"]');
+    if (checkbox && !checkbox.disabled) {
+      checkbox.checked = true;
+      card.classList.add('selected');
+    }
+  });
+  updateSummary();
+}
+
+function selectNone(category) {
+  const cards = document.querySelectorAll(`.analysis-card[data-category="${category}"]`);
+  cards.forEach(card => {
+    const checkbox = card.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+      checkbox.checked = false;
+      card.classList.remove('selected');
+    }
+  });
+  updateSummary();
+}
+
+function updateSummary() {
+  const checked = document.querySelectorAll('.analysis-checkbox:checked:not(:disabled)').length;
+  document.getElementById('selected-count').textContent = checked;
+}
+</script>
+{% endblock %}
