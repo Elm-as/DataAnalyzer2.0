@@ -38,11 +38,16 @@ def detect_column_type(series: pd.Series) -> str:
     if pd.api.types.is_bool_dtype(series):
         return 'boolean'
     
-    # Vérifier si les valeurs uniques sont seulement True/False (strict boolean detection)
+    # Vérifier si les valeurs uniques sont seulement True/False ou 0/1 (boolean detection)
     unique_values = set(series_clean.unique())
-    # Only classify as boolean if it's exactly 2 unique boolean-like values
-    if len(unique_values) == 2 and unique_values.issubset({True, False, 'True', 'False', 'true', 'false'}):
-        return 'boolean'
+    # Classify as boolean if exactly 2 unique boolean-like values (including numeric 0/1)
+    if len(unique_values) == 2:
+        # String boolean values
+        if unique_values.issubset({True, False, 'True', 'False', 'true', 'false'}):
+            return 'boolean'
+        # Numeric boolean values (0 and 1 only)
+        if unique_values.issubset({0, 1}):
+            return 'boolean'
     
     # Vérifier si c'est numérique
     if pd.api.types.is_numeric_dtype(series):

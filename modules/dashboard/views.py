@@ -742,11 +742,16 @@ def set_target_and_features(request: HttpRequest) -> HttpResponse:
         return redirect(_get_redirect_url(request))
 
     # Parse manual type changes from POST data (fields starting with type__)
+    # Validate column names against actual dataset to prevent injection
     manual_types: Dict[str, str] = {}
+    valid_columns = set(columns)
     for k, v in request.POST.items():
         if not k.startswith('type__'):
             continue
         col = k[len('type__'):]
+        # Only accept valid column names from the dataset
+        if col not in valid_columns:
+            continue
         if v in {'numeric', 'categorical', 'text', 'date', 'boolean'}:
             manual_types[col] = v
 

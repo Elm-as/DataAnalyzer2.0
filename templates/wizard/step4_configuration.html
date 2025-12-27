@@ -155,7 +155,7 @@
 {% endblock %}
 
 {% block next_button %}
-  <button id="nextStepBtn" class="btn btn-primary" {% if not target %}disabled{% endif %}>
+  <button id="nextStepBtn" class="btn btn-primary" {% if not target %}disabled aria-describedby="nextStepMessage"{% endif %} data-next-url="{% url 'wizard_step' step=5 %}">
     Suivant : Sélection des Analyses
     <i class="fa-solid fa-arrow-right ms-2"></i>
   </button>
@@ -215,12 +215,17 @@
       nextStepMessage.style.display = hasTarget ? 'none' : 'inline';
       
       if (hasTarget) {
-        // Update the button href to navigate to step 5
+        nextStepBtn.removeAttribute('aria-describedby');
+        // Update the button to navigate using data attribute
         nextStepBtn.onclick = function() {
-          window.location.href = "{% url 'wizard_step' step=5 %}";
+          const nextUrl = this.getAttribute('data-next-url');
+          if (nextUrl) {
+            window.location.href = nextUrl;
+          }
           return false;
         };
       } else {
+        nextStepBtn.setAttribute('aria-describedby', 'nextStepMessage');
         nextStepBtn.onclick = null;
       }
     });
