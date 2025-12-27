@@ -579,7 +579,6 @@ def wizard_run_analyses(request: HttpRequest) -> HttpResponse:
                 }
         
         # Store results (make them JSON-safe for session storage)
-        from .services import _json_safe
         request.session['wizard_analysis_results'] = _json_safe(results)
         
         if errors:
