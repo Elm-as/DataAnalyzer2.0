@@ -38,6 +38,7 @@ from .services import (
     get_last_results,
     SESSION_KEY_TARGET,
     SESSION_KEY_FEATURES,
+    _json_safe,
 )
 from .forms import UploadDatasetForm
 
@@ -63,6 +64,47 @@ def _set_wizard_step(request: HttpRequest, step: int) -> None:
     if step > 0:
         completed.add(step - 1)
     request.session[SESSION_KEY_WIZARD_COMPLETED_STEPS] = list(completed)
+
+
+def _make_result_serializable(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove non-serializable objects from ML results before storing in session.
+    
+    ML models, scalers, and encoders cannot be JSON-serialized, so we remove them
+    while keeping the metrics, feature importance, and other useful data.
+    Then apply _json_safe to convert numpy types to native Python types.
+    """
+    if not isinstance(result, dict):
+        return _json_safe(result)
+    
+    serializable_result = result.copy()
+    
+    # If this is a successful ML result, clean the nested structure
+    if result.get('success') and 'results' in result:
+        results_dict = result['results'].copy()
+        
+        # Remove non-serializable objects from the top level
+        for key in ['scaler', 'encoders', 'impute_values']:
+            if key in results_dict:
+                del results_dict[key]
+        
+        # Clean model objects from the models dictionary
+        if 'models' in results_dict and isinstance(results_dict['models'], dict):
+            cleaned_models = {}
+            for model_name, model_data in results_dict['models'].items():
+                if isinstance(model_data, dict):
+                    cleaned_model_data = model_data.copy()
+                    # Remove the actual model object
+                    if 'model' in cleaned_model_data:
+                        del cleaned_model_data['model']
+                    cleaned_models[model_name] = cleaned_model_data
+                else:
+                    cleaned_models[model_name] = model_data
+            results_dict['models'] = cleaned_models
+        
+        serializable_result['results'] = results_dict
+    
+    # Apply _json_safe to convert numpy types and other non-JSON-serializable types
+    return _json_safe(serializable_result)
 
 
 def _can_access_step(request: HttpRequest, step: int) -> bool:
@@ -492,39 +534,71 @@ def wizard_run_analyses(request: HttpRequest) -> HttpResponse:
     features = request.session.get(SESSION_KEY_FEATURES, [])
     
     results = {}
+    errors = []
     
-    # Run each selected analysis
-    for analysis_id in selected_analyses:
-        if analysis_id == 'descriptive':
-            results['descriptive'] = descriptive_statistics(ctx.df)
-        elif analysis_id == 'correlation':
-            results['correlation'] = correlation_analysis(ctx.df, params={'method': 'pearson', 'threshold': 0.3})
-        elif analysis_id == 'distribution':
-            results['distribution'] = distribution_analysis(ctx.df, params={'bins': 30})
-        elif analysis_id == 'outliers':
-            results['outliers'] = detect_outliers(ctx.df, params={'iqr_multiplier': 1.5})
-        elif analysis_id == 'categorical':
-            results['categorical'] = categorical_analysis(ctx.df)
-        elif analysis_id == 'regression' and target:
-            params = {
-                'test_size': 0.2,
-                'random_state': 42,
-                'scale': True,
-                'models': ['linear', 'random_forest', 'xgboost']
-            }
-            results['regression'] = train_regression_model(ctx.df, target, features, params)
-        elif analysis_id == 'classification' and target:
-            params = {
-                'test_size': 0.2,
-                'random_state': 42,
-                'scale': True,
-                'models': ['logistic', 'random_forest', 'xgboost']
-            }
-            results['classification'] = train_classification_model(ctx.df, target, features, params)
-    
-    # Store results
-    request.session['wizard_analysis_results'] = results
-    set_last_results(request, {'success': True, 'results': results})
+    # Run each selected analysis with error handling
+    try:
+        for analysis_id in selected_analyses:
+            try:
+                if analysis_id == 'descriptive':
+                    results['descriptive'] = descriptive_statistics(ctx.df)
+                elif analysis_id == 'correlation':
+                    results['correlation'] = correlation_analysis(ctx.df, params={'method': 'pearson', 'threshold': 0.3})
+                elif analysis_id == 'distribution':
+                    results['distribution'] = distribution_analysis(ctx.df, params={'bins': 30})
+                elif analysis_id == 'outliers':
+                    results['outliers'] = detect_outliers(ctx.df, params={'iqr_multiplier': 1.5})
+                elif analysis_id == 'categorical':
+                    results['categorical'] = categorical_analysis(ctx.df)
+                elif analysis_id == 'regression' and target:
+                    params = {
+                        'test_size': 0.2,
+                        'random_state': 42,
+                        'scale': True,
+                        'models': ['linear', 'random_forest', 'xgboost']
+                    }
+                    ml_result = train_regression_model(ctx.df, target, features, params)
+                    # Remove non-serializable objects before storing
+                    results['regression'] = _make_result_serializable(ml_result)
+                elif analysis_id == 'classification' and target:
+                    params = {
+                        'test_size': 0.2,
+                        'random_state': 42,
+                        'scale': True,
+                        'models': ['logistic', 'random_forest', 'xgboost']
+                    }
+                    ml_result = train_classification_model(ctx.df, target, features, params)
+                    # Remove non-serializable objects before storing
+                    results['classification'] = _make_result_serializable(ml_result)
+            except Exception as e:
+                # Log individual analysis errors but continue with others
+                errors.append(f"{analysis_id}: {str(e)}")
+                results[analysis_id] = {
+                    'success': False,
+                    'error': str(e)
+                }
+        
+        # Store results (make them JSON-safe for session storage)
+        request.session['wizard_analysis_results'] = _json_safe(results)
+        
+        if errors:
+            # Some analyses failed but we have partial results
+            set_last_results(request, {
+                'success': True,
+                'partial': True,
+                'results': results,
+                'errors': errors
+            })
+        else:
+            # All analyses succeeded
+            set_last_results(request, {'success': True, 'results': results})
+        
+    except Exception as e:
+        # Catastrophic failure
+        set_last_results(request, {
+            'success': False,
+            'error': f'Erreur lors de l\'exécution des analyses: {str(e)}'
+        })
     
     return redirect('wizard_step', step=6)
 
