@@ -69,7 +69,17 @@
   background: #28a745;
 }
 
-/* Responsive stepper */
+/* Responsive stepper - Progressive enhancement approach */
+@media (max-width: 992px) {
+  .stepper-line {
+    width: 40px;
+  }
+  
+  .stepper-label {
+    font-size: 0.8rem;
+  }
+}
+
 @media (max-width: 768px) {
   .stepper-circle {
     width: 40px;
@@ -78,11 +88,32 @@
   }
   
   .stepper-line {
-    width: 30px;
+    width: 20px;
   }
   
   .stepper-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .stepper-container {
+    gap: 5px;
+  }
+  
+  .stepper-circle {
+    width: 35px;
+    height: 35px;
+    font-size: 0.9rem;
+  }
+  
+  .stepper-line {
+    width: 15px;
+    height: 2px;
+  }
+  
+  .stepper-label {
+    font-size: 0.65rem;
   }
 }
 
@@ -351,4 +382,89 @@
 
 .mb-100 {
   margin-bottom: 100px !important;
+}
+
+/* Additional Responsive Improvements */
+@media (max-width: 768px) {
+  .hero-icon {
+    font-size: 4rem;
+  }
+  
+  .quality-score-circle {
+    width: 120px;
+    height: 120px;
+    font-size: 2rem;
+  }
+  
+  .metric-value {
+    font-size: 2rem;
+  }
+  
+  .step-card-header {
+    font-size: 1.1rem;
+    padding: 1rem;
+  }
+  
+  .wizard-navigation {
+    padding: 0.75rem 0;
+  }
+}
+
+@media (max-width: 576px) {
+  .hero-icon {
+    font-size: 3rem;
+  }
+  
+  .quality-score-circle {
+    width: 100px;
+    height: 100px;
+    font-size: 1.75rem;
+  }
+  
+  .metric-value {
+    font-size: 1.75rem;
+  }
+  
+  .metric-card {
+    padding: 1rem;
+  }
+  
+  .step-card-header {
+    font-size: 1rem;
+    padding: 0.75rem;
+  }
+  
+  .feature-icon {
+    font-size: 2rem;
+  }
+  
+  /* Make navigation buttons stack on very small screens */
+  .wizard-navigation .d-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .wizard-navigation .btn {
+    width: 100%;
+  }
+}
+
+/* Tables responsive */
+@media (max-width: 992px) {
+  .data-preview-table {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .data-preview-table {
+    font-size: 0.75rem;
+  }
+}
+
+/* Cards responsive */
+@media (max-width: 768px) {
+  .analysis-card {
+    padding: 0.75rem;
+  }
 }

@@ -12,14 +12,15 @@
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
   <div class="container-fluid">
-    <span class="navbar-brand">
+    <span class="navbar-brand mb-0">
       <i class="fa-solid fa-chart-line me-2"></i>
-      DataAnalyzer 2.0 - Assistant Pas à Pas
+      <span class="d-none d-sm-inline">DataAnalyzer 2.0 - Assistant Pas à Pas</span>
+      <span class="d-inline d-sm-none">DataAnalyzer 2.0</span>
     </span>
     {% if current_step > 0 %}
     <div class="d-flex gap-2">
       <a href="{% url 'wizard_home' %}" class="btn btn-outline-light btn-sm">
-        <i class="fa-solid fa-home"></i> Recommencer
+        <i class="fa-solid fa-home"></i> <span class="d-none d-md-inline">Recommencer</span>
       </a>
     </div>
     {% endif %}
