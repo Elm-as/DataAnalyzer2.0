@@ -155,7 +155,7 @@
 {% endblock %}
 
 {% block next_button %}
-  <button id="nextStepBtn" class="btn btn-primary" {% if not target %}disabled aria-describedby="nextStepMessage"{% endif %} data-next-url="{% url 'wizard_step' step=5 %}">
+  <button id="nextStepBtn" class="btn btn-primary" {% if not target %}disabled{% endif %} aria-describedby="nextStepMessage" data-next-url="{% url 'wizard_step' step=5 %}">
     Suivant : Sélection des Analyses
     <i class="fa-solid fa-arrow-right ms-2"></i>
   </button>
@@ -229,12 +229,8 @@
       const hasTarget = this.value && this.value !== '';
       nextStepBtn.disabled = !hasTarget;
       nextStepMessage.style.display = hasTarget ? 'none' : 'inline';
-      
-      if (hasTarget) {
-        nextStepBtn.removeAttribute('aria-describedby');
-      } else {
-        nextStepBtn.setAttribute('aria-describedby', 'nextStepMessage');
-      }
+      // aria-describedby is always present for consistent accessibility
+    });
     });
   }
 })();
