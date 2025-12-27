@@ -105,22 +105,29 @@ def _get_redirect_url(request: HttpRequest, wizard_step: Optional[int] = None) -
     """
     referer = request.META.get('HTTP_REFERER', '')
     
-    # Check if request is from wizard
-    if '/wizard/' in referer or request.session.get('wizard_step') is not None:
+    # Check if request is from wizard - use more specific URL pattern matching
+    is_wizard_context = (
+        '/wizard/' in referer or 
+        request.session.get('wizard_step') is not None or
+        referer.endswith('/wizard/') or
+        referer.endswith('/')  # Root could be wizard home
+    )
+    
+    if is_wizard_context and '/wizard/' in referer:
         # If specific wizard step provided, use it
         if wizard_step is not None:
             return reverse('wizard_step', kwargs={'step': wizard_step})
-        # Otherwise, try to extract current step from referer
-        if '/wizard/step/' in referer:
+        
+        # Try to extract current step from referer using more robust parsing
+        import re
+        step_match = re.search(r'/wizard/step/(\d+)/', referer)
+        if step_match:
             try:
-                # Extract step number from URL like /wizard/step/1/
-                parts = referer.split('/wizard/step/')
-                if len(parts) > 1:
-                    step_str = parts[1].split('/')[0]
-                    current_step = int(step_str)
-                    return reverse('wizard_step', kwargs={'step': current_step})
+                current_step = int(step_match.group(1))
+                return reverse('wizard_step', kwargs={'step': current_step})
             except (ValueError, IndexError):
                 pass
+        
         # Default to wizard step 1 if we can't determine the step
         return reverse('wizard_step', kwargs={'step': 1})
     

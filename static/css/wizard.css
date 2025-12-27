@@ -69,7 +69,7 @@
   background: #28a745;
 }
 
-/* Responsive stepper */
+/* Responsive stepper - Progressive enhancement approach */
 @media (max-width: 992px) {
   .stepper-line {
     width: 40px;
